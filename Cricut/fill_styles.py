@@ -4,7 +4,7 @@ import numpy as np
 from math import cos, sin, radians, hypot
 
 
-def vertical(path, spacing, angle_deg=45, overshoot=2.0):
+def straight_hatch_pass(path, spacing, angle_deg, overshoot=2.0):
     # translate to origin
     xmin, xmax, ymin, ymax = path.bbox()
     cx, cy = (xmin + xmax) / 2, (ymin + ymax) / 2
@@ -49,11 +49,11 @@ def vertical(path, spacing, angle_deg=45, overshoot=2.0):
 
     return hatch_lines
 
-def vertical_crosshatch(path, spacing, angles, overshoot=2.0):
+def straight_hatch(path, spacing, angles, overshoot=2.0):
     all_hatches = []
 
     for ang in angles:
-        pass_hatches = vertical(path, spacing, ang, overshoot)
+        pass_hatches = straight_hatch_pass(path, spacing, ang, overshoot)
         all_hatches.extend(pass_hatches)
 
     return all_hatches
@@ -80,10 +80,7 @@ def zigzag(path, spacing, layers=2):
 
     return Path(*[Line(full[i], full[i+1]) for i in range(len(full) - 1)])
 
-def crosshatch(path, spacing, layers=2):
-    print("trc: hatch_fill_crosshatch")
-
-    # --- Helper for one zigzag direction ---
+def zigzag_crosshatch(path, spacing, layers=2):
     def build_zigzag_along_axis(axis='vertical'):
         print("trc: build_zigzag_along_axis")
 
