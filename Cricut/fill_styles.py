@@ -65,7 +65,8 @@ def zigzag(path, spacing, layers=2):
     pairs = []
     for x in x_values:
         line = Line(complex(x, ymin - 10), complex(x, ymax + 10))
-        pts = [seg.point(t1) for seg in path for t1, _ in seg.intersect(line)]
+        #pts = [seg.point(t1) for seg in path for t1, _ in seg.intersect(line)]
+        pts = [seg.point(t1) for seg in path if seg.start != seg.end for t1, _ in seg.intersect(line)]
         pts.sort(key=lambda p: p.imag)
         for i in range(0, len(pts) - 1, 2):
             pairs.append((pts[i], pts[i + 1]))
