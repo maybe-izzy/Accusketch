@@ -2,11 +2,31 @@ import os
 import numpy as np
 from svgpathtools import Line, Path, svg2paths2, wsvg
 from shapely.geometry import LineString, Polygon
+import random
 
-def zigzag_fill(path, step=5, overshoot=10):
+def sample_path_to_polygon(path, num_samples=1000):
+    points = [path.point(i / num_samples) for i in range(num_samples)]
+    coords = [(pt.real, pt.imag) for pt in points]
+    coords.append(coords[0])  # close the loop
+    return Polygon(coords)
+
+def shapely_polygon_to_svgpath(shapely_poly):
+    """Convert a shapely Polygon exterior to svgpathtools.Path."""
+    exterior_coords = list(shapely_poly.exterior.coords)
+    segments = []
+    for i in range(len(exterior_coords) - 1):
+        start = complex(*exterior_coords[i])
+        end = complex(*exterior_coords[i + 1])
+        segments.append(Line(start, end))
+    return Path(*segments)
+
+def random_color():
+    return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+
+def zigzag_fill(path, step=5, overshoot=10, path_buf = 8, x_tolerance_epsilon=1e-2):
     points = [(seg.start.real, seg.start.imag) for seg in path]
     if len(points) < 3:
-        return []  # Or raise an error, or skip
+        return None  # Or raise an error, or skip
 
     # Ensure it's closed
     if points[0] != points[-1]:
@@ -36,6 +56,12 @@ def zigzag_fill(path, step=5, overshoot=10):
        
         intersections.sort(key=lambda p: p.imag)
         return list(zip(intersections[::2], intersections[1::2]))  # pair them
+    polygon = sample_path_to_polygon(path)
+    safe_polygon = polygon.buffer(path_buf)
+    safe_polygon_path_visual = shapely_polygon_to_svgpath(safe_polygon)
+
+    """safe_polygon = polygon.buffer(path_buf)
+    """
 
     for x in vertical_xs:
         vertical_line = Line(complex(x, ymin - overshoot), complex(x, ymax + overshoot))
@@ -47,14 +73,17 @@ def zigzag_fill(path, step=5, overshoot=10):
                 last_pair = group[-1]
                 scan_line = LineString([(last_pair[1].real, last_pair[1].imag),
                                         (pair[0].real, pair[0].imag)])
-                safe_polygon = polygon.buffer(8)
+                
+
+
                 inter = safe_polygon.intersection(scan_line)
                 dx = abs(pair[0].real - last_pair[1].real)
                 """
                 if inter.length / scan_line.length > 0.7:
                     group.append(pair)"""
-                if abs(dx - step) < 1e-3 and safe_polygon.covers(scan_line):
+                if abs(dx - step) < x_tolerance_epsilon and safe_polygon.covers(scan_line):
                     group.append(pair)
+                    
                     was_matched = True
                     break
             
@@ -75,9 +104,9 @@ def zigzag_fill(path, step=5, overshoot=10):
             zigzag.append(Line(last_pair[1], next_pair[0]))
             zigzag.append(Line(next_pair[0], next_pair[1]))
             last_pair = next_pair
-            
-        zigzag_paths.append(zigzag)
-
+            zigzag_paths.append(zigzag)
+        zigzag_paths = zigzag_paths + [safe_polygon_path_visual]
+    
     return zigzag_paths
 
 def main():
@@ -89,8 +118,9 @@ def main():
     for path in paths:
         zigzags = zigzag_fill(path)
         if (zigzags):
-            new_paths.extend(zigzag_fill(path))
+            new_paths.extend(zigzag_fill(path, step=0.35, overshoot=10, path_buf=0.25, x_tolerance_epsilon=5e-1))
 
-    wsvg(new_paths, filename=output_path, svg_attributes=svg_attrs)
+    colors = [random_color() for _ in new_paths]
+    wsvg(new_paths, filename=output_path, svg_attributes=svg_attrs, colors=colors, stroke_widths=[0.1 for _ in new_paths])
    
 main()
