@@ -1,12 +1,25 @@
-from svgpathtools import parse_path, Line, Path, svg2paths2, wsvg
-from shapely.geometry import LineString, Polygon
 import os
 import numpy as np
-
+from svgpathtools import Line, Path, svg2paths2, wsvg
+from shapely.geometry import LineString, Polygon
 
 def zigzag_fill(path, step=5, overshoot=10):
-    polygon = Polygon([(seg.start.real, seg.start.imag) for seg in path])
+    points = [(seg.start.real, seg.start.imag) for seg in path]
+    if len(points) < 3:
+        return []  # Or raise an error, or skip
 
+    # Ensure it's closed
+    if points[0] != points[-1]:
+        points.append(points[0])
+
+    polygon = Polygon(points)
+    """
+    try:
+        polygon = Polygon([(seg.start.real, seg.start.imag) for seg in path])
+    except: 
+        print("path too small!")
+        return None
+    """
     xmin, xmax, ymin, ymax = path.bbox()
     vertical_xs = np.arange(xmin, xmax + step, step)
 
@@ -15,9 +28,12 @@ def zigzag_fill(path, step=5, overshoot=10):
     def intersect_path_with_line(line):
         intersections = []
         for seg in path:
+            if seg.start == seg.end:
+                continue  # Skip zero-length segments
             for t, _ in seg.intersect(line):
                 pt = seg.point(t)
                 intersections.append(pt)
+       
         intersections.sort(key=lambda p: p.imag)
         return list(zip(intersections[::2], intersections[1::2]))  # pair them
 
@@ -60,29 +76,21 @@ def zigzag_fill(path, step=5, overshoot=10):
             zigzag.append(Line(next_pair[0], next_pair[1]))
             last_pair = next_pair
             
-
         zigzag_paths.append(zigzag)
 
     return zigzag_paths
 
 def main():
-    input_path = os.path.join("../svg", "very_weird_shape.svg")
-    output_path = os.path.join("../svg", "very_weird_shape_hatched.svg")
+    input_path = os.path.join("../svg/input/", "b1.25_united.svg")
+    output_path = os.path.join("../svg/output/", "b1.25_united.svg")
     paths, attributes, svg_attrs = svg2paths2(input_path)
-    """
+    
     new_paths = []
     for path in paths:
-        new_paths.append(zigzag_fill(path))
-    flattened_paths = []
-    for item in new_paths:
-        if isinstance(item, list):
-            flattened_paths.extend(item)
-        else:
-            flattened_paths.append(item)
-    wsvg(flattened_paths, filename=output_path, svg_attributes=svg_attrs)
-    """
+        zigzags = zigzag_fill(path)
+        if (zigzags):
+            new_paths.extend(zigzag_fill(path))
 
-
-    wsvg(zigzag_fill(paths[0]), filename=output_path, svg_attributes=svg_attrs)
+    wsvg(new_paths, filename=output_path, svg_attributes=svg_attrs)
    
 main()

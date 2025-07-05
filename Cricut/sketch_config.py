@@ -39,7 +39,7 @@ class Fill:
     line_angles: List[float] = field(default_factory=list)
 
 FILL_CONFIG = {
-    Value.L1: Fill(0.5, FillStyle.ZIGZAG_HATCH, 1, [45, 135]),
+    Value.L1: Fill(0.5, FillStyle.ZIGZAG_CROSSHATCH, 1, [45, 135]),
     Value.L1_25: Fill(0.5, FillStyle.STRAIGHT_HATCH),
     Value.L1_5: Fill(0.5, FillStyle.STRAIGHT_HATCH),
     Value.L1_75: Fill(0.5, FillStyle.STRAIGHT_HATCH),

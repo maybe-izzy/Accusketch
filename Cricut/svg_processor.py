@@ -1,6 +1,6 @@
 from svgpathtools import svg2paths2, wsvg
 from sketch_config import FILL_CONFIG, Value, FillStyle
-from fill_styles import zigzag, zigzag_crosshatch, straight_hatch_pass, straight_hatch
+from Cricut.fill_path_algorithms import zigzag, zigzag_crosshatch, straight_hatch_pass, straight_hatch
 
 class SVGSketchProcessor:
     def __init__(self, input_file, output_file, shade: Value):
