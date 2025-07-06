@@ -106,8 +106,8 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf = 8, x_tolerance_epsilon=1e
     
     if len(groups) == 0:
         print("No groups formed — adding debug sweep lines + intersections")
-        debug_overlay = []
-        debug_overlay.append(shapely_polygon_to_svgpath(safe_polygon))
+        zigzag_backup_paths = []
+        zigzag_backup_paths.append(shapely_polygon_to_svgpath(safe_polygon))
 
         # Draw vertical sweep lines + intersections
         for x in vertical_xs:
@@ -124,10 +124,10 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf = 8, x_tolerance_epsilon=1e
                         radius = 0.25
                         horiz = Line(pt - radius, pt + radius)
                         vert = Line(pt - radius * 1j, pt + radius * 1j)
-                        debug_overlay.extend([horiz, vert])
+                        zigzag_backup_paths.extend([horiz, vert])
                 except:
                     continue
-        return debug_overlay
+        return zigzag_backup_paths
         
     print(f"Groups in path: {len(groups)}")
     for group in groups:

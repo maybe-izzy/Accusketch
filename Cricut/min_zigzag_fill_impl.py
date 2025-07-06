@@ -147,18 +147,45 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf = 8, x_tolerance_epsilon=1e
     return zigzag_paths
 
 def main():
-    input_path = os.path.join("../svg/input/", "b1.25_united.svg")
-    output_path = os.path.join("../svg/output/", "b1.25_united.svg")
+    input_path = os.path.join("../svg/input/", "swatch_square.svg")
+    output_path = os.path.join("../svg/output/", "swatch_square.svg")
     paths, attributes, svg_attrs = svg2paths2(input_path)
     
     new_paths = []
     for path in paths:
-        zigzags = zigzag_fill(path, step=0.35, overshoot=10, path_buf=0.25, x_tolerance_epsilon=5e-1)
+        zigzags = zigzag_fill(path, step=.5, overshoot=10, path_buf=0.25, x_tolerance_epsilon=5e-1)
         if (zigzags):
             new_paths.extend(zigzags)
         else: 
             new_paths.append(path)
     # colors = [random_color() for _ in new_paths]
+
+    seen = set()
+    deduped_paths = []
+
+    for i, path in enumerate(new_paths):
+        key = tuple((seg.start.real, seg.start.imag, seg.end.real, seg.end.imag) for seg in path)
+        if key not in seen:
+            seen.add(key)
+            deduped_paths.append(path)
+        else:
+            print(f"⚠️ Duplicate path removed at index {i}")
+
+    wsvg(deduped_paths, filename="deduplicated_output.svg", stroke_widths=[0.1]*len(deduped_paths))
+
+    half = len(new_paths) // 2
+
+    # First half
+    paths1 = new_paths[:half]
+
+
+    # Second half
+    paths2 = new_paths[half:]
+
+
+    # Save each half
+    wsvg(paths1, filename="output_half_1.svg", stroke_widths=[0.1]*len(paths1))
+    wsvg(paths2, filename="output_half_2.svg", stroke_widths=[0.1]*len(paths2))
     wsvg(new_paths, filename=output_path, svg_attributes=svg_attrs, stroke_widths=[0.1 for _ in new_paths])
    
 main()
