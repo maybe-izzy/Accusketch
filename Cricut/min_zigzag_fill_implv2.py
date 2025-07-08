@@ -1,3 +1,5 @@
+from math import radians, cos, sin
+from svgpathtools import smoothed_path, rotate  # you already have svgpathtools
 import os
 import numpy as np
 from svgpathtools import Line, Path, svg2paths2, wsvg
@@ -26,110 +28,59 @@ def shapely_polygon_to_svgpath(shapely_poly):
         segments.append(Line(start, end))
     return Path(*segments)
 
-def random_color():
-    return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+def zigzag_fill(path, step=5, overshoot=10, path_buf=8, x_tolerance_epsilon=1e-2, angle_deg=45):
+    θ = radians(angle_deg)
 
-def zigzag_fill(path, step=5, overshoot=10, path_buf = 8, x_tolerance_epsilon=1e-2):
-    
-    points = [(seg.start.real, seg.start.imag) for seg in path]
+    # 🔁 Step 1: Rotate path to align zigzags with vertical lines
+    rotated_path = path.rotated(-θ)
+
+    # 🔁 Step 2: Do everything in rotated space
+    points = [(seg.start.real, seg.start.imag) for seg in rotated_path]
     if len(points) < 3:
         print("SUPER SMALL")
-        return None  # Or raise an error, or skip
+        return None
 
-    # Ensure it's closed
     if points[0] != points[-1]:
         points.append(points[0])
 
-    polygon = sample_path_to_polygon(path, num_samples=500)#Polygon(points)
-    """
-    try:
-        polygon = Polygon([(seg.start.real, seg.start.imag) for seg in path])
-    except: 
-        print("path too small!")
-        return None
-    """
-    xmin, xmax, ymin, ymax = path.bbox()
+    polygon = sample_path_to_polygon(rotated_path, num_samples=500)
+    xmin, xmax, ymin, ymax = rotated_path.bbox()
     vertical_xs = np.arange(xmin, xmax + step, step)
-
+    safe_polygon = polygon.buffer(path_buf)
     groups = []
 
     def intersect_path_with_line(line):
         intersections = []
-        for seg in path:
+        for seg in rotated_path:
             if seg.start == seg.end:
-                continue  # Skip zero-length segments
+                continue
             for t, _ in seg.intersect(line):
                 pt = seg.point(t)
                 intersections.append(pt)
-       
         intersections.sort(key=lambda p: p.imag)
-        return list(zip(intersections[::2], intersections[1::2]))  # pair them
-    
-    polygon = sample_path_to_polygon(path, num_samples=500)
-    safe_polygon = polygon.buffer(path_buf)
-    safe_polygon_path_visual = shapely_polygon_to_svgpath(safe_polygon)
-
-    """safe_polygon = polygon.buffer(path_buf)
-    """
+        return list(zip(intersections[::2], intersections[1::2]))
 
     for x in vertical_xs:
         vertical_line = Line(complex(x, ymin - overshoot), complex(x, ymax + overshoot))
         pairs = intersect_path_with_line(vertical_line)
-        if (len(pairs) == 0): 
-            print("no pairs")
+        if not pairs:
+            continue
         for pair in pairs:
             was_matched = False
             for group in groups:
-                
                 last_pair = group[-1]
                 scan_line = LineString([(last_pair[1].real, last_pair[1].imag),
                                         (pair[0].real, pair[0].imag)])
-                
-
-
-                inter = safe_polygon.intersection(scan_line)
                 dx = abs(pair[0].real - last_pair[1].real)
-                """
-                if inter.length / scan_line.length > 0.7:
-                    group.append(pair)"""
                 if abs(dx - step) < x_tolerance_epsilon and safe_polygon.covers(scan_line):
                     group.append(pair)
-                    
                     was_matched = True
                     break
-            
             if not was_matched:
                 groups.append([pair])
 
-    # Now create zigzag paths from the groups
+    # 🔁 Step 3: Zigzag and rotate back
     zigzag_paths = []
-    
-    """if len(groups) == 0:
-        print("No groups formed — adding debug sweep lines + intersections")
-        zigzag_backup_paths = []
-        zigzag_backup_paths.append(shapely_polygon_to_svgpath(safe_polygon))
-
-        # Draw vertical sweep lines + intersections
-        for x in vertical_xs:
-            vertical_line = Line(complex(x, ymin - overshoot), complex(x, ymax + overshoot))
-
-            # Add intersection points
-            for seg in path:
-                if seg.start == seg.end:
-                    continue
-                try:
-                    for t, _ in seg.intersect(vertical_line):
-                        pt = seg.point(t)
-                        # Add small crosshair-style marker
-                        radius = 0.25
-                        horiz = Line(pt - radius, pt + radius)
-                        vert = Line(pt - radius * 1j, pt + radius * 1j)
-                        zigzag_backup_paths.extend([horiz, vert])
-                except:
-                    continue
-        return zigzag_backup_paths"""
-        
-    print(f"Groups in path: {len(groups)}")
     for group in groups:
         if not group:
             continue
@@ -141,26 +92,24 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf = 8, x_tolerance_epsilon=1e
             zigzag.append(Line(last_pair[1], next_pair[0]))
             zigzag.append(Line(next_pair[0], next_pair[1]))
             last_pair = next_pair
-            zigzag_paths.append(zigzag)
-        
-    
+
+        # 🔁 Rotate back each zigzag path
+        zigzag_paths.append(zigzag.rotated(θ))
+
     return zigzag_paths
 
 def main():
-    input_path = os.path.join("../svg/input/", "b1.25_united.svg")
-    output_path = os.path.join("../svg/output/", "b1.25_united.svg")
+    input_path = os.path.join("../svg/input/", "swatch_square.svg")
+    output_path = os.path.join("../svg/output/", "swatch_square.svg")
     paths, attributes, svg_attrs = svg2paths2(input_path)
     
     new_paths = []
-    angle_deg = 45
     for path in paths:
-        zigzags = zigzag_fill(path.rotated(angle_deg), step=3, overshoot=10, path_buf=0.25, x_tolerance_epsilon=5e-1)
+        zigzags = zigzag_fill(path, step=.5, overshoot=10, path_buf=0.25, x_tolerance_epsilon=5e-1)
         if (zigzags):
-            for zigzag in zigzags: 
-
-                new_paths.append(zigzag.rotated(-1 * angle_deg))
+            new_paths.extend(zigzags)
         else: 
-            new_paths.append(path.rotated(-1 * angle_deg))
+            new_paths.append(path)
     # colors = [random_color() for _ in new_paths]
 
     seen = set()
@@ -187,8 +136,8 @@ def main():
 
 
     # Save each half
-    wsvg(paths1, filename="output_half_1.svg", stroke_widths=[0.1]*len(paths1))
-    wsvg(paths2, filename="output_half_2.svg", stroke_widths=[0.1]*len(paths2))
+    #wsvg(paths1, filename="output_half_1.svg", stroke_widths=[0.1]*len(paths1))
+    #wsvg(paths2, filename="output_half_2.svg", stroke_widths=[0.1]*len(paths2))
     wsvg(new_paths, filename=output_path, svg_attributes=svg_attrs, stroke_widths=[0.1 for _ in new_paths])
    
 main()
