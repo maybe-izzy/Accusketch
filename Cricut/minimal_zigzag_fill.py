@@ -116,7 +116,7 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=8, x_tolerance_epsilon=1e-2
 
 
 def main():
-    svg_name   = "b1.25_united.svg"
+    svg_name   = "weird_shape.svg"
     in_dir     = "../svg/input/"
     out_dir    = "../svg/output/"
     paths, attrs, svg_attrs = svg2paths2(os.path.join(in_dir, svg_name))
