@@ -42,7 +42,7 @@ def random_color():
 
 def zigzag_fill(path, step=5, overshoot=10, path_buf=8, x_tolerance_epsilon=1e-2):
     pts = [(seg.start.real, seg.start.imag) for seg in path]
-    if len(pts) < 3:
+    if not (len(pts) >= 2):
         return None
     if pts[0] != pts[-1]:
         pts.append(pts[0])
@@ -116,7 +116,7 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=8, x_tolerance_epsilon=1e-2
 
 
 def main():
-    svg_name   = "weird_shape.svg"
+    svg_name   = "b1.25_united.svg"
     in_dir     = "../svg/input/"
     out_dir    = "../svg/output/"
     paths, attrs, svg_attrs = svg2paths2(os.path.join(in_dir, svg_name))
