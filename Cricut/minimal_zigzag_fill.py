@@ -1,8 +1,47 @@
 import os
 import numpy as np
+import math
 from svgpathtools import Line, Path, svg2paths2, wsvg
 from shapely.geometry import LineString, Polygon
 import random
+
+def dedupe_paths(paths):
+    seen = set()
+    unique = []
+    for p in paths:
+        # skip anything that isn't an svgpathtools.Path
+        if not isinstance(p, Path):
+            continue
+
+        sig = p.d()        # e.g. "M 10,10 L 20,10 L 20,20 Z"
+        if sig not in seen:
+            seen.add(sig)
+            unique.append(p)
+
+    return unique
+
+
+
+
+def rotate(path: Path,
+           angle_deg: float,
+           origin: complex | str = "center") -> Path:
+    """
+    Returns a *new* Path that is `angle_deg` degrees counter-clockwise
+    around `origin`.
+
+    `origin` may be:
+      • a complex number (e.g. 135+42j), or  
+      • the string "center" – aka the geometric centre of the path’s
+        bounding box.
+    """
+    if isinstance(origin, str) and origin == "center":
+        xmin, xmax, ymin, ymax = path.bbox()
+        origin = complex((xmin + xmax) / 2, (ymin + ymax) / 2)
+
+    theta = math.radians(angle_deg)
+    return path.rotated(theta, origin=origin)
+
 
 def is_small_path(path, min_area=0.5):
     points = [path.point(t / 100.0) for t in range(101)]
@@ -146,19 +185,66 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf = 8, x_tolerance_epsilon=1e
     
     return zigzag_paths
 
+def rotate_path_around_center(path, angle_deg):
+    from math import radians, cos, sin
+
+    # Step 1: Get the bounding box center
+    xmin, xmax, ymin, ymax = path.bbox()
+    cx = (xmin + xmax) / 2
+    cy = (ymin + ymax) / 2
+    center = complex(cx, cy)
+
+    # Step 2: Translate path to origin
+    path_centered = path.translated(-center)
+
+    # Step 3: Rotate around origin
+ 
+    path_rotated = path_centered.rotated(angle_deg)
+
+    # Step 4: Translate back to original center
+    return path_rotated.translated(center)
 def main():
-    input_path = os.path.join("../svg/input/", "b1.25_united.svg")
-    output_path = os.path.join("../svg/output/", "b1.25_united.svg")
-    paths, attributes, svg_attrs = svg2paths2(input_path)
-    
+    svg_name   = "b1.25_united.svg"
+    in_dir     = "../svg/input/"
+    out_dir    = "../svg/output/"
+    paths, attrs, svg_attrs = svg2paths2(os.path.join(in_dir, svg_name))
+
     new_paths = []
+    angle     = 45.0
+
     for path in paths:
-        zigzags = zigzag_fill(path)
-        if (zigzags):
-            new_paths.extend(zigzag_fill(path, step=0.25, overshoot=10, path_buf=0.25, x_tolerance_epsilon=5e-1))
-        else: 
+        # 1) compute center of the original path
+        xmin, xmax, ymin, ymax = path.bbox()
+        center = complex((xmin + xmax)/2, (ymin + ymax)/2)
+
+        # 2) rotate original to lay your zig-zag on it
+        rotated_shape = path.rotated(angle, origin=center)
+
+        # 3) generate zig-zags on that rotated shape
+        zigzags = zigzag_fill(
+            path=rotated_shape,
+            step=0.5,
+            overshoot=10,
+            path_buf=0.25,
+            x_tolerance_epsilon=0.5
+        )
+
+        if zigzags:
+            for zig in zigzags:
+                # rotate each zigzag **back** around the same center
+                back = zig.rotated(-angle, origin=center)
+                new_paths.append(back)
+        else:
+            # no fill? just draw the original
             new_paths.append(path)
+
+    # write out
+    new_paths = dedupe_paths(new_paths)
     colors = [random_color() for _ in new_paths]
-    wsvg(new_paths, filename=output_path, svg_attributes=svg_attrs, colors=colors, stroke_widths=[0.1 for _ in new_paths])
+    wsvg(new_paths,
+         filename=os.path.join(out_dir, svg_name),
+         svg_attributes=svg_attrs,
+         colors=colors,
+        stroke_widths=[0.1]*len(new_paths))
    
 main()
