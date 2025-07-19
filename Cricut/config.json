@@ -1,0 +1,48 @@
+{
+    "svg_filename" : "tester2.svg", 
+    "values_to_process" : [1], 
+    "shading_config" : {
+        "1" : {
+            "cmyk_str" : "CMYK1", 
+            "angles" : [45], 
+            "slice_heights" : [5.0], 
+            "spacing" : [1]
+        },
+        "1.25" : {
+            "cmyk_str" : "CMYK1", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        },
+        "1.5" : {
+            "cmyk_str" : "CMYK1", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        },
+        "1.75" : {
+            "cmyk_str" : "CMYK1", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        },
+        "2" : {
+            "cmyk_str" : "CMYK1", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        },
+        "2.25" : {
+            "cmyk_str" : "CMYK1", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        },
+        "2.5" : {
+            "cmyk_str" : "CMYK1", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        }
+    }
+}

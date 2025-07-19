@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="a" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" width="612" height="792" viewBox="0 0 612 792">
+  <defs>
+    <style>
+      .b {
+        fill: #6d6e71;
+        stroke: #231f20;
+        stroke-miterlimit: 10;
+      }
+    </style>
+  </defs>
+  <rect class="b" x="64.5" y="60.5" width="47" height="47"/>
+</svg>
