@@ -2,7 +2,7 @@ import os
 import random
 
 import numpy as np
-from shapely.geometry import LineString, Polygon
+from shapely.geometry import box, LineString, Polygon
 from svgpathtools import Line, Path, svg2paths2, wsvg
 
 
@@ -114,30 +114,86 @@ def get_border_path(svg_attrs):
     )
     return border
 
+def sort_paths_by_proximity(paths):
+    if not paths:
+        return []
+
+    # Extract start and end points for each path
+    endpoints = [(p[0].start, p[-1].end) for p in paths]
+
+    # Start with the first path
+    sorted_paths = [paths[0]]
+    used = {0}
+
+    while len(sorted_paths) < len(paths):
+        last_end = sorted_paths[-1][-1].end
+        min_dist = float("inf")
+        next_idx = None
+
+        # Find the closest path start to the last endpoint
+        for i, (start, end) in enumerate(endpoints):
+            if i in used:
+                continue
+            dist = abs(last_end - start)
+            if dist < min_dist:
+                min_dist = dist
+                next_idx = i
+
+        sorted_paths.append(paths[next_idx])
+        used.add(next_idx)
+
+    return sorted_paths
+
 
 def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
     new_paths = []
 
+    global global_xmin
+    global_xmin = min(p.bbox()[0] for p in paths)
+    
     for path in paths:
         xmin, xmax, ymin, ymax = path.bbox()
         center = complex((xmin + xmax)/2, (ymin + ymax)/2)
-
-        rotated_shape = path.rotated(angle, origin=center)
-
-        zigzags = zigzag_fill(
-            path=rotated_shape,
-            step=step,
-            overshoot=1,
-            path_buf=.2,
-            x_tolerance_epsilon=1
-        )
-
-        if zigzags:
-            for zig in zigzags:
-                back = zig.rotated(-angle, origin=center)
-                new_paths.append(back)
+        
+        if slice_height is None or slice_height <= 0 or slice_height >= (ymax - ymin):
+            bands = [(ymin, ymax)]  # one single band (no slicing)
         else:
-            new_paths.append(path)
-
+            bands = []
+            y = ymin
+            while y < ymax:
+                bands.append((y, min(y + slice_height, ymax)))
+                y += slice_height
+       
+        for y0, y1 in bands:
+            band = box(xmin, y0, xmax, y1)
+            base_poly = sample_path_to_polygon(path, num_samples=500)
+            try:
+                poly0 = base_poly.buffer(0)
+                slice_poly = poly0.intersection(band)
+            except :
+                slice_poly = base_poly.buffer(0).intersection(band)
+            if slice_poly.is_empty:
+                continue
+            slices = ([slice_poly] if isinstance(slice_poly, Polygon)
+                      else list(slice_poly.geoms))
+            for sp in slices:
+                slice_path = shapely_polygon_to_svgpath(sp)
+                sxmin, sxmax, symin, symax = slice_path.bbox()
+                slice_center = complex((sxmin + sxmax) / 2, (symin + symax) / 2)
+                rotated = slice_path.rotated(angle, origin=slice_center)
+                zigzags = zigzag_fill(
+                    path=rotated,
+                    step=step,
+                    overshoot=1,
+                    path_buf=.2,
+                    x_tolerance_epsilon=1
+                )
+                if zigzags:
+                    for z in zigzags:
+                        new_paths.append(z.rotated(-angle, origin=slice_center))
+                else:
+                    new_paths.append(slice_path)
     new_paths = remove_duplicate_paths(new_paths)
+    new_paths = sort_paths_by_proximity(new_paths)
+    print(f"There are {len(new_paths)} paths")
     return new_paths

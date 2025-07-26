@@ -1,12 +1,12 @@
 {
-    "svg_filename" : "shaun_1.25.svg", 
+    "svg_filename" : "b1.25.svg", 
     "values_to_process" : [1], 
     "shading_config" : {
         "1" : {
             "cmyk_str" : "CMYK1", 
-            "angles" : [0], 
-            "slice_heights" : [5.0, 5.0], 
-            "spacing" : [1, 1]
+            "angles" : [45], 
+            "slice_heights" : [20.0, 30.0], 
+            "spacing" : [0.8, 0.8]
         },
         "1.25" : {
             "cmyk_str" : "CMYK1", 
