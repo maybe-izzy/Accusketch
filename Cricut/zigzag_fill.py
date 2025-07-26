@@ -1,9 +1,17 @@
 import os
 import random
+from shapely.ops import unary_union
 
 import numpy as np
-from shapely.geometry import box, LineString, Polygon
+from shapely.geometry import box, LineString, Polygon, GeometryCollection
 from svgpathtools import Line, Path, svg2paths2, wsvg
+from shapely.strtree   import STRtree
+from numbers import Integral
+try:                              # Shapely 2.x
+    from shapely.ops import make_valid
+    _fix = make_valid
+except ImportError:               # Shapely ≤1.8
+    _fix = lambda g: g.buffer(0)
 
 
 def remove_duplicate_paths(paths):
@@ -38,6 +46,61 @@ def shapely_polygon_to_svgpath(poly):
 
 def random_color():
     return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+
+def _clean(g):
+    g = _fix(g)
+    if g.is_empty:
+        return None
+    if isinstance(g, GeometryCollection) and len(g.geoms) == 1:
+        g = g.geoms[0]
+    return g
+
+def filter_nested_paths(
+        paths,
+        *,
+        num_samples: int = 800,
+        tol: float = 1e-3
+    ):
+    """
+    Remove any path that lies completely inside (or on the edge of)
+    another path, regardless of SVG stacking order.
+    """
+    polys      = []
+    keep_flags = [True] * len(paths)
+
+    # 1) build polygons once
+    for p in paths:
+        polys.append(_clean(sample_path_to_polygon(p, num_samples)))
+
+    # 2) make a list of *valid* polygons for the STRtree
+    valid_polys   = [poly for poly in polys if poly is not None]
+    poly_to_index = {id(poly): i for i, poly in enumerate(polys) if poly is not None}
+
+    tree = STRtree(valid_polys)      # Shapely 2.x returns indices here
+
+    # 3) test each polygon against potential supersets
+    for i, poly in enumerate(polys):
+        if poly is None:
+            continue  # keep strokes / invalid → can’t be “inside” a fill
+
+        # candidates whose bounding boxes intersect ours
+        candidates = tree.query(poly)
+
+        for candidate in candidates:
+            # --- Shapely 2.x → 'candidate' is an int; 1.x → geometry ----
+            if isinstance(candidate, Integral):
+                sup_poly = valid_polys[int(candidate)]
+            else:                     # Shapely 1.x
+                sup_poly = candidate
+
+            if sup_poly is poly or sup_poly.equals(poly):
+                continue
+
+            if sup_poly.buffer(tol).covers(poly):
+                keep_flags[i] = False
+                break
+
+    return [p for p, keep in zip(paths, keep_flags) if keep]
 
 
 def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e-2):
@@ -85,17 +148,35 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
                 groups.append([p])
 
     result = []
+    result_mid = []
+
     for grp in groups:
         if not grp:
             continue
+        longest_line_len = 0
+        num_lines = 1
         zig = Path(Line(grp[0][0], grp[0][1]))
         last = grp[0]
         for nxt in grp[1:]:
-            zig.append(Line(last[1], nxt[0]))
-            zig.append(Line(nxt[0], nxt[1]))
+            first_line = Line(last[1], nxt[0])
+            second_line = Line(nxt[0], nxt[1])
+
+            if first_line.length() > longest_line_len: 
+                longest_line_len = first_line.length()
+            elif second_line.length() > longest_line_len:
+                longest_line_len = second_line.length()
+        
+            zig.append(first_line)
+            zig.append(second_line)
+            num_lines += 2
             last = nxt
-        result.append(zig)
-    return result
+        
+        if longest_line_len >= 3.5 and num_lines >= 5: 
+            print(f"longest_line_len: {longest_line_len}, num_lines: {num_lines}")
+            result.append(zig)
+        else:
+            result_mid.append(zig)
+    return result, result_mid
 
 
 def get_border_path(svg_attrs): 
@@ -147,6 +228,7 @@ def sort_paths_by_proximity(paths):
 
 def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
     new_paths = []
+    new_paths_small = []
 
     global global_xmin
     global_xmin = min(p.bbox()[0] for p in paths)
@@ -181,19 +263,31 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
                 sxmin, sxmax, symin, symax = slice_path.bbox()
                 slice_center = complex((sxmin + sxmax) / 2, (symin + symax) / 2)
                 rotated = slice_path.rotated(angle, origin=slice_center)
-                zigzags = zigzag_fill(
+                zigzags_reg, zigzag_small = zigzag_fill(
                     path=rotated,
                     step=step,
                     overshoot=1,
                     path_buf=.2,
                     x_tolerance_epsilon=1
                 )
-                if zigzags:
-                    for z in zigzags:
+                
+                
+                if zigzags_reg:
+                    print(f"zigzags_reg: {len(zigzags_reg)}")
+                    for z in zigzags_reg:
                         new_paths.append(z.rotated(-angle, origin=slice_center))
-                else:
-                    new_paths.append(slice_path)
+                elif zigzag_small:
+                    print(f"zigzag_small: {len(zigzag_small)}") 
+                    for z in zigzag_small:
+                        new_paths_small.append(z.rotated(-angle, origin=slice_center))
+                if not zigzags_reg and not zigzag_small:
+                    new_paths_small.append(slice_path)
+
+    print(f"new_paths_small: {len(new_paths)}")
+    print(f"new_paths_small: {len(new_paths_small)}")
     new_paths = remove_duplicate_paths(new_paths)
-    new_paths = sort_paths_by_proximity(new_paths)
-    print(f"There are {len(new_paths)} paths")
-    return new_paths
+    new_paths_small = remove_duplicate_paths(new_paths_small)
+    #new_paths = sort_paths_by_proximity(new_paths)
+    print(f"There are {len(new_paths)} regular paths")
+    print(f"There are {len(new_paths_small)} small paths")
+    return new_paths, new_paths_small

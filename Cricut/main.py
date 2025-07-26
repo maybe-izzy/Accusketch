@@ -2,7 +2,7 @@ import os
 import json
 import os
 from svgpathtools import svg2paths2, wsvg
-from zigzag_fill import paths_to_zigzag_paths, random_color, get_border_path
+from zigzag_fill import paths_to_zigzag_paths, random_color, get_border_path, filter_nested_paths
 
 
 class Config:
@@ -16,11 +16,14 @@ class Config:
     def get_values_to_process(self): 
         return self.cfg_dict["values_to_process"]
         
-    def get_output_path(self): 
-        return os.path.join("./svg/output/", self.get_svg_name())
+    def get_output_path(self, extension=None): 
+        if extension is None: 
+            return os.path.join("./svg/output/", (self.get_svg_name() + ".svg"))
+        else: 
+            return os.path.join("./svg/output/", (self.get_svg_name() + extension + ".svg"))
         
     def get_input_path(self): 
-        return os.path.join("./svg/input/", self.get_svg_name())
+        return os.path.join("./svg/input/", self.get_svg_name() + ".svg")
         
     def get_cmyk_value(self, value): 
         return self.cfg_dict["shading_config"][str(value)]["cmyk_str"]
@@ -50,25 +53,53 @@ def main():
     config.print_config()
 
     all_paths, attrs, svg_attrs = svg2paths2(os.path.join(config.get_input_path()))
-    all_zigzags = []
+    all_paths = filter_nested_paths(all_paths)
+    colors = [random_color() for _ in all_paths]
+
+    wsvg(
+        all_paths,
+        filename=config.get_output_path(extension="_outlines"),
+        svg_attributes=svg_attrs,
+        colors=colors,
+        stroke_widths=[0.1] * len(all_paths)
+    )
+    
+    zigzags_regular_size = []
+    zigzags_small_size = []
+
     for value in config.get_values_to_process(): 
         angles = config.get_angles(value) 
         spacing = config.get_spacing(value)
         slice_flags = config.get_slice_sizes(value)
         
+   
         for i in range(0, len(angles)): 
-            all_zigzags.extend(paths_to_zigzag_paths(all_paths, angles[i], spacing[i], slice_height=slice_flags[i]))
-  
-    all_zigzags.extend(get_border_path(svg_attrs=svg_attrs))
+            zigzags_reg, zigzag_small = paths_to_zigzag_paths(all_paths, angles[i], spacing[i], slice_height=slice_flags[i])
+            zigzags_small_size.extend(zigzag_small)
+            print(f"small zigzags: {len(zigzag_small)}")
+            print(f"reg zigzags: {len(zigzags_reg)}")
+            zigzags_regular_size.extend(zigzags_reg)
+   
+    zigzags_regular_size.extend(get_border_path(svg_attrs=svg_attrs))
+    zigzags_small_size.extend(get_border_path(svg_attrs=svg_attrs))    
 
-    colors = [random_color() for _ in all_zigzags]
+    colors_reg = [random_color() for _ in zigzags_regular_size]
+    colors_small = [random_color() for _ in zigzags_small_size]
+   
+    wsvg(
+        zigzags_regular_size,
+        filename=(config.get_output_path(extension="_regularpaths")),
+        svg_attributes=svg_attrs,
+        colors=colors_reg,
+        stroke_widths=[0.1] * len(colors_reg)
+    )
 
     wsvg(
-        all_zigzags,
-        filename=config.get_output_path(),
+        zigzags_small_size,
+        filename=(config.get_output_path(extension="_smallpaths")),
         svg_attributes=svg_attrs,
-        colors=colors,
-        stroke_widths=[0.1] * len(all_zigzags)
+        colors=colors_small,
+        stroke_widths=[0.1] * len(colors_small)
     )
 
 if __name__ == "__main__":
