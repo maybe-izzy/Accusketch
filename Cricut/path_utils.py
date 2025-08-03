@@ -1,19 +1,28 @@
-import os
 import random
 from shapely.ops import unary_union
-
+import math
 import numpy as np
 from shapely.geometry import box, LineString, Polygon, GeometryCollection
-from svgpathtools import Line, Path, svg2paths2, wsvg
+from svgpathtools import Line, Path, wsvg
 from shapely.strtree   import STRtree
 from numbers import Integral
-try:                              # Shapely 2.x
-    from shapely.ops import make_valid
-    _fix = make_valid
-except ImportError:               # Shapely ≤1.8
-    _fix = lambda g: g.buffer(0)
+_fix = lambda g: g.buffer(0)
 
+def save_paths(paths, filepath, svg_attrs, with_border=True):
+    if with_border: 
+        paths.extend(get_border_path(svg_attrs=svg_attrs)) 
+        
+    colors = [random_color() for _ in paths]
 
+    wsvg(
+        paths,
+        filename=filepath,
+        svg_attributes=svg_attrs,
+        colors=colors,
+        stroke_widths=[0.1] * len(paths)
+    )
+
+    
 def remove_duplicate_paths(paths):
     seen = set()
     unique = []
@@ -26,11 +35,15 @@ def remove_duplicate_paths(paths):
             unique.append(p)
     return unique
 
+def svgpath_to_shapely_polygon(path, step=1.5, min_pts=25, max_pts=10000):
+    L = max(path.length(error=1e-3), 1e-9)
+    n = int(np.clip(math.ceil(L / step), min_pts, max_pts))
 
-def sample_path_to_polygon(path, num_samples=1000):
-    points = [path.point(i / num_samples) for i in range(num_samples)]
-    coords = [(pt.real, pt.imag) for pt in points]
-    coords.append(coords[0])
+    ts = np.linspace(0.0, 1.0, n, endpoint=False)  # [0, 1)
+    pts = [path.point(t) for t in ts]
+    pts.append(path.point(1.0))                    # close
+
+    coords = [(p.real, p.imag) for p in pts]
     return Polygon(coords)
 
 
@@ -70,7 +83,7 @@ def filter_nested_paths(
 
     # 1) build polygons once
     for p in paths:
-        polys.append(_clean(sample_path_to_polygon(p, num_samples)))
+        polys.append(_clean(svgpath_to_shapely_polygon(p)))
 
     # 2) make a list of *valid* polygons for the STRtree
     valid_polys   = [poly for poly in polys if poly is not None]
@@ -112,9 +125,8 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
 
     xmin, xmax, ymin, ymax = path.bbox()
     xs = np.arange(xmin, xmax + step, step)
-    poly = sample_path_to_polygon(path, num_samples=10000)
+    poly = svgpath_to_shapely_polygon(path, step)
     safe_poly = poly.buffer(path_buf)
-    safe_path = shapely_polygon_to_svgpath(safe_poly)
     groups = []
 
     def intersect_with(line):
@@ -248,7 +260,7 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
        
         for y0, y1 in bands:
             band = box(xmin, y0, xmax, y1)
-            base_poly = sample_path_to_polygon(path, num_samples=500)
+            base_poly = svgpath_to_shapely_polygon(path, step)
             try:
                 poly0 = base_poly.buffer(0)
                 slice_poly = poly0.intersection(band)

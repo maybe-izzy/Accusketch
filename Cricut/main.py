@@ -1,51 +1,7 @@
 import os
-import json
-import os
-from svgpathtools import svg2paths2, wsvg
-from zigzag_fill import paths_to_zigzag_paths, random_color, get_border_path, filter_nested_paths
-
-
-class Config:
-    def __init__(self, fname): 
-        with open(fname) as f:
-            self.cfg_dict = json.load(f)
-    
-    def get_svg_name(self): 
-        return self.cfg_dict["svg_filename"]
-        
-    def get_values_to_process(self): 
-        return self.cfg_dict["values_to_process"]
-        
-    def get_output_path(self, extension=None): 
-        if extension is None: 
-            return os.path.join("./svg/output/", (self.get_svg_name() + ".svg"))
-        else: 
-            return os.path.join("./svg/output/", (self.get_svg_name() + extension + ".svg"))
-        
-    def get_input_path(self): 
-        return os.path.join("./svg/input/", self.get_svg_name() + ".svg")
-        
-    def get_cmyk_value(self, value): 
-        return self.cfg_dict["shading_config"][str(value)]["cmyk_str"]
-        
-    def get_angles(self, value): 
-        return self.cfg_dict["shading_config"][str(value)]["angles"]
-    
-    def get_slice_sizes(self, value): 
-        return self.cfg_dict["shading_config"][str(value)]["slice_heights"]
-        
-    def get_spacing(self, value): 
-        return self.cfg_dict["shading_config"][str(value)]["spacing"]
-        
-    def get_all_values(self): 
-        return self.cfg_dict["shading_config"].keys()
-        
-    def print_config(self):
-        print(f"{'='*30} CONFIG {'='*30}")
-        print(f"Input path: {self.get_input_path()}")
-        print(f"Output path: {self.get_output_path()}") 
-        for value in self.get_all_values():
-            print(f"{value}\t:\tangles : {self.get_angles(value)}, slice_heights: {self.get_slice_sizes(value)}, spacing: {self.get_spacing(value)}")
+from svgpathtools import svg2paths2
+from path_utils import paths_to_zigzag_paths, filter_nested_paths, save_paths
+from config import Config
 
 def main():
     cfg_filename = "config.json"
@@ -54,15 +10,7 @@ def main():
 
     all_paths, attrs, svg_attrs = svg2paths2(os.path.join(config.get_input_path()))
     all_paths = filter_nested_paths(all_paths)
-    colors = [random_color() for _ in all_paths]
-
-    wsvg(
-        all_paths,
-        filename=config.get_output_path(extension="_outlines"),
-        svg_attributes=svg_attrs,
-        colors=colors,
-        stroke_widths=[0.1] * len(all_paths)
-    )
+    save_paths(all_paths, config.get_output_path(extension="_outlines"), svg_attrs)
     
     zigzags_regular_size = []
     zigzags_small_size = []
@@ -71,7 +19,6 @@ def main():
         angles = config.get_angles(value) 
         spacing = config.get_spacing(value)
         slice_flags = config.get_slice_sizes(value)
-        
    
         for i in range(0, len(angles)): 
             zigzags_reg, zigzag_small = paths_to_zigzag_paths(all_paths, angles[i], spacing[i], slice_height=slice_flags[i])
@@ -79,28 +26,9 @@ def main():
             print(f"small zigzags: {len(zigzag_small)}")
             print(f"reg zigzags: {len(zigzags_reg)}")
             zigzags_regular_size.extend(zigzags_reg)
-   
-    zigzags_regular_size.extend(get_border_path(svg_attrs=svg_attrs))
-    zigzags_small_size.extend(get_border_path(svg_attrs=svg_attrs))    
 
-    colors_reg = [random_color() for _ in zigzags_regular_size]
-    colors_small = [random_color() for _ in zigzags_small_size]
-   
-    wsvg(
-        zigzags_regular_size,
-        filename=(config.get_output_path(extension="_regularpaths")),
-        svg_attributes=svg_attrs,
-        colors=colors_reg,
-        stroke_widths=[0.1] * len(colors_reg)
-    )
-
-    wsvg(
-        zigzags_small_size,
-        filename=(config.get_output_path(extension="_smallpaths")),
-        svg_attributes=svg_attrs,
-        colors=colors_small,
-        stroke_widths=[0.1] * len(colors_small)
-    )
+    save_paths(zigzags_regular_size, config.get_output_path(extension="_regularpaths"), svg_attrs)
+    save_paths(zigzags_small_size, config.get_output_path(extension="_smallpaths"), svg_attrs)
 
 if __name__ == "__main__":
     main()
