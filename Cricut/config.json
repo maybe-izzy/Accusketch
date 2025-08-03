@@ -1,5 +1,5 @@
 {
-    "svg_filename" : "b1_no_compound", 
+    "svg_filename" : "b1", 
     "values_to_process" : [1], 
     "shading_config" : {
         "1" : {

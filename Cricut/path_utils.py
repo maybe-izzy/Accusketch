@@ -4,14 +4,16 @@ import math
 import numpy as np
 from shapely.geometry import box, LineString, Polygon, GeometryCollection
 from svgpathtools import Line, Path, wsvg
-from shapely.strtree   import STRtree
+from shapely.strtree import STRtree
 from numbers import Integral
+
 _fix = lambda g: g.buffer(0)
 
+
 def save_paths(paths, filepath, svg_attrs, with_border=True):
-    if with_border: 
-        paths.extend(get_border_path(svg_attrs=svg_attrs)) 
-        
+    if with_border:
+        paths.extend(get_border_path(svg_attrs=svg_attrs))
+
     colors = [random_color() for _ in paths]
 
     wsvg(
@@ -21,6 +23,7 @@ def save_paths(paths, filepath, svg_attrs, with_border=True):
         colors=colors,
         stroke_widths=[0.1] * len(paths)
     )
+
 
 def remove_duplicate_paths(paths):
     seen = set()
@@ -34,29 +37,207 @@ def remove_duplicate_paths(paths):
             unique.append(p)
     return unique
 
+
 def svgpath_to_shapely_polygon(path, step=1.5, min_pts=25, max_pts=10000):
-    L = max(path.length(error=1e-3), 1e-9)
-    n = int(np.clip(math.ceil(L / step), min_pts, max_pts))
+    """
+    Robust conversion of an svgpathtools.Path into a Shapely polygon.
+    Handles multiple sub-contours, applies even-odd logic via symmetric difference,
+    and falls back to containment-based exterior+holes construction.
+    """
+    # 1. Decompose into contiguous subpaths (split on discontinuity)
+    subpaths = []
+    current_segs = []
+    prev_end = None
+    for seg in path:
+        if not hasattr(seg, "start") or not hasattr(seg, "end"):
+            continue
+        if prev_end is not None and abs(seg.start - prev_end) > 1e-6:
+            if current_segs:
+                subpaths.append(Path(*current_segs))
+            current_segs = []
+        current_segs.append(seg)
+        prev_end = seg.end
+    if current_segs:
+        subpaths.append(Path(*current_segs))
 
-    ts = np.linspace(0.0, 1.0, n, endpoint=False)  # [0, 1)
-    pts = [path.point(t) for t in ts]
-    pts.append(path.point(1.0))                    # close
+    def sample(subpath):
+        L = max(subpath.length(error=1e-3), 1e-9)
+        n = int(np.clip(math.ceil(L / step), min_pts, max_pts))
+        ts = np.linspace(0.0, 1.0, n, endpoint=False)
+        pts = [subpath.point(t) for t in ts]
+        pts.append(subpath.point(1.0))
+        coords = [(pt.real, pt.imag) for pt in pts]
+        poly = Polygon(coords)
+        if not poly.is_valid:
+            poly = poly.buffer(0)
+        if poly.is_empty:
+            return None
+        return poly
 
-    coords = [(p.real, p.imag) for p in pts]
-    return Polygon(coords)
+    polys = []
+    for sp in subpaths:
+        p = sample(sp)
+        if p is not None:
+            polys.append(p)
+
+    if not polys:
+        return Polygon()
+
+    # Even-odd: symmetric difference of all polygons
+    filled = polys[0]
+    for p in polys[1:]:
+        filled = filled.symmetric_difference(p)
+    if not filled.is_empty:
+        return filled
+
+    # Fallback: build outer+holes via containment
+    parents = {i: None for i in range(len(polys))}
+    for i, pi in enumerate(polys):
+        for j, pj in enumerate(polys):
+            if i == j:
+                continue
+            if pj.contains(pi):
+                if parents[i] is None or pj.area < polys[parents[i]].area:
+                    parents[i] = j
+
+    outer_idxs = [i for i, parent in parents.items() if parent is None]
+    result_polys = []
+    for outer in outer_idxs:
+        hole_idxs = [i for i, parent in parents.items() if parent == outer]
+        holes = []
+        for hi in hole_idxs:
+            if polys[hi].exterior is not None:
+                holes.append(list(polys[hi].exterior.coords))
+        newpoly = Polygon(list(polys[outer].exterior.coords), holes=holes)
+        if not newpoly.is_valid:
+            newpoly = newpoly.buffer(0)
+        result_polys.append(newpoly)
+
+    if not result_polys:
+        return polys[0]
+    if len(result_polys) == 1:
+        return result_polys[0]
+    return unary_union(result_polys)
 
 
-def shapely_polygon_to_svgpath(poly):
-    exterior = list(poly.exterior.coords)
+def shapely_to_svgpathtools_path(poly):
+    """
+    Converts a shapely Polygon or MultiPolygon (with holes) into an svgpathtools.Path.
+    """
     segments = []
-    for i in range(len(exterior) - 1):
-        start = complex(*exterior[i])
-        end = complex(*exterior[i + 1])
-        segments.append(Line(start, end))
-    return Path(*segments)
+
+    def ring_to_segments(ring):
+        coords = list(ring.coords)
+        segs = []
+        for a, b in zip(coords, coords[1:]):
+            segs.append(Line(complex(*a), complex(*b)))
+        return segs
+
+    if poly.geom_type == "Polygon":
+        if poly.exterior is not None:
+            segments.extend(ring_to_segments(poly.exterior))
+        for interior in poly.interiors:
+            segments.extend(ring_to_segments(interior))
+        return Path(*segments)
+    elif poly.geom_type == "MultiPolygon":
+        all_segs = []
+        for part in poly:
+            part_path = shapely_to_svgpathtools_path(part)
+            all_segs.extend(list(part_path))
+        return Path(*all_segs)
+    else:
+        return Path()
+
+
+def build_containment_tree(polys):
+    """
+    Given list of (original_path, shapely_polygon), returns parent and children maps.
+    parents: idx -> parent idx or None
+    children: idx -> list of immediate children
+    """
+    n = len(polys)
+    parents = {i: None for i in range(n)}
+    for i, (_, pi) in enumerate(polys):
+        for j, (_, pj) in enumerate(polys):
+            if i == j:
+                continue
+            if pj.contains(pi):
+                if parents[i] is None or pj.area < polys[parents[i]][1].area:
+                    parents[i] = j
+    children = {i: [] for i in range(n)}
+    for i, parent in parents.items():
+        if parent is not None:
+            children[parent].append(i)
+    return parents, children
+
+
+def assemble_holey_polygons(polys):
+    """
+    Collapse outer+hole hierarchies into final shapely geometries, handling nested
+    holes/islands via recursive symmetric differences.
+    Input: list of tuples (original_path, shapely_polygon)
+    Output: list of merged shapely geometries (one per top-level outer)
+    """
+    parents, children = build_containment_tree(polys)
+    outer_idxs = [i for i, p in parents.items() if p is None]
+    result = []
+
+    def build_recursive(idx):
+        base = polys[idx][1]
+        child_geoms = []
+        for child in children.get(idx, []):
+            child_geom = build_recursive(child)
+            child_geoms.append(child_geom)
+        if not child_geoms:
+            return base
+        combined = base
+        for cg in child_geoms:
+            combined = combined.symmetric_difference(cg)
+        return combined
+
+    for outer in outer_idxs:
+        merged = build_recursive(outer)
+        if not merged.is_valid:
+            merged = merged.buffer(0)
+        result.append(merged)
+    return result
+
+
+def merge_outer_and_hole_paths(paths, *, sampling_step=1.5, min_pts=25, max_pts=10000):
+    """
+    Given a list of svgpathtools.Path objects that share the same fill (outer + hole
+    as separate <path> elements), collapse them into merged hole-aware Paths.
+    """
+    # Build (original, shapely) list
+    polys = []
+    for p in paths:
+        poly = svgpath_to_shapely_polygon(p, step=sampling_step,
+                                          min_pts=min_pts, max_pts=max_pts)
+        if not poly.is_valid:
+            poly = poly.buffer(0)
+        if poly.is_empty:
+            continue
+        polys.append((p, poly))
+
+    if not polys:
+        return []
+
+    # Assemble with hierarchy
+    merged_shapely = assemble_holey_polygons(polys)
+    if not merged_shapely:
+        # fallback: return originals
+        return paths
+
+    merged_paths = []
+    for shp in merged_shapely:
+        svg_path = shapely_to_svgpathtools_path(shp)
+        merged_paths.append(svg_path)
+    return merged_paths
+
 
 def random_color():
     return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+
 
 def parse_style(style_str: str) -> dict:
     d = {}
@@ -66,13 +247,15 @@ def parse_style(style_str: str) -> dict:
             d[k.strip()] = v.strip()
     return d
 
+
 def filter_paths_by_color(paths, attrs, color):
-    filtered_paths = [] 
+    filtered_paths = []
     for path, attr in zip(paths, attrs):
-        path_color = parse_style(attr.get("style")).get("fill")
-        if path_color == color: 
+        path_color = parse_style(attr.get("style", "")).get("fill")
+        if path_color == color:
             filtered_paths.append(path)
-    return filtered_paths 
+    return filtered_paths
+
 
 def _clean(g):
     g = _fix(g)
@@ -81,6 +264,7 @@ def _clean(g):
     if isinstance(g, GeometryCollection) and len(g.geoms) == 1:
         g = g.geoms[0]
     return g
+
 
 def filter_nested_paths(
         paths,
@@ -92,7 +276,7 @@ def filter_nested_paths(
     Remove any path that lies completely inside (or on the edge of)
     another path, regardless of SVG stacking order.
     """
-    polys      = []
+    polys = []
     keep_flags = [True] * len(paths)
 
     # 1) build polygons once
@@ -100,24 +284,22 @@ def filter_nested_paths(
         polys.append(_clean(svgpath_to_shapely_polygon(p)))
 
     # 2) make a list of *valid* polygons for the STRtree
-    valid_polys   = [poly for poly in polys if poly is not None]
+    valid_polys = [poly for poly in polys if poly is not None]
     poly_to_index = {id(poly): i for i, poly in enumerate(polys) if poly is not None}
 
-    tree = STRtree(valid_polys)      # Shapely 2.x returns indices here
+    tree = STRtree(valid_polys)
 
     # 3) test each polygon against potential supersets
     for i, poly in enumerate(polys):
         if poly is None:
             continue  # keep strokes / invalid → can’t be “inside” a fill
 
-        # candidates whose bounding boxes intersect ours
         candidates = tree.query(poly)
 
         for candidate in candidates:
-            # --- Shapely 2.x → 'candidate' is an int; 1.x → geometry ----
             if isinstance(candidate, Integral):
                 sup_poly = valid_polys[int(candidate)]
-            else:                     # Shapely 1.x
+            else:
                 sup_poly = candidate
 
             if sup_poly is poly or sup_poly.equals(poly):
@@ -165,7 +347,7 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
                     (p[0].real,    p[0].imag)
                 ])
                 dx = abs(p[0].real - last[1].real)
-                
+
                 if abs(dx - step) < x_tolerance_epsilon and safe_poly.covers(scan):
                     grp.append(p)
                     matched = True
@@ -187,17 +369,17 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
             first_line = Line(last[1], nxt[0])
             second_line = Line(nxt[0], nxt[1])
 
-            if first_line.length() > longest_line_len: 
+            if first_line.length() > longest_line_len:
                 longest_line_len = first_line.length()
             elif second_line.length() > longest_line_len:
                 longest_line_len = second_line.length()
-        
+
             zig.append(Line(last[1], nxt[0]))
             zig.append(Line(nxt[0], nxt[1]))
             num_lines += 2
             last = nxt
-        
-        if longest_line_len >= 3.5 and num_lines >= 5: 
+
+        if longest_line_len >= 3.5 and num_lines >= 5:
             print(f"longest_line_len: {longest_line_len}, num_lines: {num_lines}")
             result.append(zig)
         else:
@@ -205,7 +387,7 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
     return result, result_mid
 
 
-def get_border_path(svg_attrs): 
+def get_border_path(svg_attrs):
     if "viewBox" in svg_attrs:
         vb = list(map(float, svg_attrs["viewBox"].split()))
         _, _, width, height = vb
@@ -214,12 +396,13 @@ def get_border_path(svg_attrs):
         height = float(svg_attrs.get("height", 0).rstrip("px"))
 
     border = Path(
-        Line(0+0j, width+0j),
-        Line(width+0j, width+height*1j),
-        Line(width+height*1j, 0+height*1j),
-        Line(0+height*1j, 0+0j),
+        Line(0 + 0j, width + 0j),
+        Line(width + 0j, width + height * 1j),
+        Line(width + height * 1j, 0 + height * 1j),
+        Line(0 + height * 1j, 0 + 0j),
     )
     return border
+
 
 def sort_paths_by_proximity(paths):
     if not paths:
@@ -250,7 +433,6 @@ def sort_paths_by_proximity(paths):
         used.add(next_idx)
 
     return sorted_paths
-
 
 def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
     new_paths = []
@@ -285,7 +467,7 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
             slices = ([slice_poly] if isinstance(slice_poly, Polygon)
                       else list(slice_poly.geoms))
             for sp in slices:
-                slice_path = shapely_polygon_to_svgpath(sp)
+                slice_path = shapely_to_svgpathtools_path(sp)
                 sxmin, sxmax, symin, symax = slice_path.bbox()
                 slice_center = complex((sxmin + sxmax) / 2, (symin + symax) / 2)
                 rotated = slice_path.rotated(angle, origin=slice_center)
@@ -296,7 +478,6 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
                     path_buf=.2,
                     x_tolerance_epsilon=1
                 )
-                
                 
                 if zigzags_reg:
                     print(f"zigzags_reg: {len(zigzags_reg)}")
