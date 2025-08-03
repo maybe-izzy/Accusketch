@@ -2,6 +2,7 @@ import random
 from shapely.ops import unary_union
 import math
 import numpy as np
+from shapely.prepared import prep
 from shapely.geometry import box, LineString, Polygon, GeometryCollection
 from svgpathtools import Line, Path, wsvg
 from shapely.strtree import STRtree
@@ -321,15 +322,32 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
 
     xmin, xmax, ymin, ymax = path.bbox()
     xs = np.arange(xmin, xmax + step, step)
+    print("before polygon")
     poly = svgpath_to_shapely_polygon(path, step)
+    print("after polygon")
     safe_poly = poly.buffer(path_buf)
+    prepared_safe = prep(safe_poly)
     groups = []
+
+    # Precompute vertical extents for each segment to short-circuit intersection tests
+    segment_bounds = []
+    for seg in path:
+        if hasattr(seg, "start") and hasattr(seg, "end"):
+            y_coords = [seg.start.imag, seg.end.imag]
+            ymin_seg, ymax_seg = min(y_coords), max(y_coords)
+            segment_bounds.append((seg, ymin_seg, ymax_seg))
+        else:
+            segment_bounds.append((seg, -1e9, 1e9))  # fallback
 
     def intersect_with(line):
         hits = []
-        for seg in path:
+        x_coord = line.start.real  # vertical line at this x
+        for seg, ymin_seg, ymax_seg in segment_bounds:
+            # quick reject: if vertical line's y-range is disjoint from segment's bbox y-range, skip
+            # (assuming line spans full y anyway; you could optimize further if needed)
             if seg.start == seg.end:
                 continue
+            # optional: skip if x is far from seg's bbox in x; compute seg bbox once if needed
             for t, _ in seg.intersect(line):
                 hits.append(seg.point(t))
         hits.sort(key=lambda p: p.imag)
@@ -348,7 +366,7 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
                 ])
                 dx = abs(p[0].real - last[1].real)
 
-                if abs(dx - step) < x_tolerance_epsilon and safe_poly.covers(scan):
+                if abs(dx - step) < x_tolerance_epsilon and prepared_safe.covers(scan):
                     grp.append(p)
                     matched = True
                     break
@@ -443,7 +461,6 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
     
     for path in paths:
         xmin, xmax, ymin, ymax = path.bbox()
-        center = complex((xmin + xmax)/2, (ymin + ymax)/2)
         
         if slice_height is None or slice_height <= 0 or slice_height >= (ymax - ymin):
             bands = [(ymin, ymax)]  # one single band (no slicing)
@@ -454,9 +471,10 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
                 bands.append((y, min(y + slice_height, ymax)))
                 y += slice_height
        
+        base_poly = svgpath_to_shapely_polygon(path, step)
         for y0, y1 in bands:
             band = box(xmin, y0, xmax, y1)
-            base_poly = svgpath_to_shapely_polygon(path, step)
+           
             try:
                 poly0 = base_poly.buffer(0)
                 slice_poly = poly0.intersection(band)
@@ -490,11 +508,7 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
                 if not zigzags_reg and not zigzag_small:
                     new_paths_small.append(slice_path)
 
-    print(f"new_paths_small: {len(new_paths)}")
-    print(f"new_paths_small: {len(new_paths_small)}")
     new_paths = remove_duplicate_paths(new_paths)
     new_paths_small = remove_duplicate_paths(new_paths_small)
-    #new_paths = sort_paths_by_proximity(new_paths)
-    print(f"There are {len(new_paths)} regular paths")
-    print(f"There are {len(new_paths_small)} small paths")
+
     return new_paths, new_paths_small

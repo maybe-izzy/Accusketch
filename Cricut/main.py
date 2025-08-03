@@ -41,7 +41,9 @@ def main():
 
     save_paths(zigzags_regular_size, config.get_output_path(extension="_regularpaths"), svg_attrs)
     save_paths(zigzags_small_size, config.get_output_path(extension="_smallpaths"), svg_attrs)
-
+    
+    zigzags_small_size.extend(zigzags_regular_size)
+    save_paths(zigzags_small_size, config.get_output_path(extension="_allpaths"), svg_attrs)
 
 if __name__ == "__main__":
     main()
