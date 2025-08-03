@@ -1,6 +1,6 @@
 {
-    "svg_filename" : "b1", 
-    "values_to_process" : [1], 
+    "svg_filename" : "simple_trace", 
+    "values_to_process" : [1, 2], 
     "shading_config" : {
         "1" : {
             "color" : "#010101", 
@@ -10,9 +10,9 @@
         },
         "2" : {
             "color" : "#262525", 
-            "angles" : [], 
-            "slice_heights" : [], 
-            "spacing" : []
+            "angles" : [45], 
+            "slice_heights" : [0], 
+            "spacing" : [0.6]
         },
         "3" : {
             "color" : "#404040", 

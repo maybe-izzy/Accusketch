@@ -322,9 +322,7 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
 
     xmin, xmax, ymin, ymax = path.bbox()
     xs = np.arange(xmin, xmax + step, step)
-    print("before polygon")
     poly = svgpath_to_shapely_polygon(path, step)
-    print("after polygon")
     safe_poly = poly.buffer(path_buf)
     prepared_safe = prep(safe_poly)
     groups = []
@@ -398,7 +396,7 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
             last = nxt
 
         if longest_line_len >= 3.5 and num_lines >= 5:
-            print(f"longest_line_len: {longest_line_len}, num_lines: {num_lines}")
+            #print(f"longest_line_len: {longest_line_len}, num_lines: {num_lines}")
             result.append(zig)
         else:
             result_mid.append(zig)
@@ -498,11 +496,11 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
                 )
                 
                 if zigzags_reg:
-                    print(f"zigzags_reg: {len(zigzags_reg)}")
+               
                     for z in zigzags_reg:
                         new_paths.append(z.rotated(-angle, origin=slice_center))
                 elif zigzag_small:
-                    print(f"zigzag_small: {len(zigzag_small)}") 
+           
                     for z in zigzag_small:
                         new_paths_small.append(z.rotated(-angle, origin=slice_center))
                 if not zigzags_reg and not zigzag_small:

@@ -16,17 +16,20 @@ def main():
 
     all_paths, attrs, svg_attrs = svg2paths2(os.path.join(config.get_input_path()))
     # Keep original outlines unmodified (do not remove hole paths yet)
-    save_paths(all_paths, config.get_output_path(extension="_outlines"), svg_attrs)
+    #save_paths(all_paths, config.get_output_path(extension="_outlines"), svg_attrs)
 
-    zigzags_regular_size = []
-    zigzags_small_size = []
 
-    for value in config.get_values_to_process():
+
+    for value in config.get_values_to_process():    
+        zigzags_regular_size = []
+        zigzags_small_size = []
+
         angles = config.get_angles(value)
         spacing = config.get_spacing(value)
         slice_flags = config.get_slice_sizes(value)
         paths = filter_paths_by_color(all_paths, attrs, config.get_color(value))
 
+        print(f"There are {len(paths)} paths for value: {str(value)}")
         # collapse outer+hole sibling paths into single hole-aware shapes
         paths = merge_outer_and_hole_paths(paths)
 
@@ -38,12 +41,16 @@ def main():
             print(f"small zigzags: {len(zigzag_small)}")
             print(f"reg zigzags: {len(zigzags_reg)}")
             zigzags_regular_size.extend(zigzags_reg)
-
-    save_paths(zigzags_regular_size, config.get_output_path(extension="_regularpaths"), svg_attrs)
-    save_paths(zigzags_small_size, config.get_output_path(extension="_smallpaths"), svg_attrs)
     
-    zigzags_small_size.extend(zigzags_regular_size)
-    save_paths(zigzags_small_size, config.get_output_path(extension="_allpaths"), svg_attrs)
+        zigzags_small_size.extend(zigzags_regular_size)
+        save_paths(zigzags_small_size, config.get_output_path(extension=("_all_" + str(value))), svg_attrs)
+
+
+    #save_paths(zigzags_regular_size, config.get_output_path(extension="_regularpaths"), svg_attrs)
+    #save_paths(zigzags_small_size, config.get_output_path(extension="_smallpaths"), svg_attrs)
+
+    #zigzags_small_size.extend(zigzags_regular_size)
+    #save_paths(zigzags_small_size, config.get_output_path(extension="_allpaths"), svg_attrs)
 
 if __name__ == "__main__":
     main()
