@@ -4,8 +4,8 @@
     "shading_config" : {
         "1" : {
             "color" : "#010101", 
-            "angles" : [45], 
-            "slice_heights" : [0, 30.0], 
+            "angles" : [45, 90], 
+            "slice_heights" : [0, 0], 
             "spacing" : [0.8, 0.8]
         },
         "2" : {
