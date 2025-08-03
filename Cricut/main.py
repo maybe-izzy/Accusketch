@@ -1,6 +1,6 @@
 import os
 from svgpathtools import svg2paths2
-from path_utils import paths_to_zigzag_paths, filter_nested_paths, save_paths
+from path_utils import paths_to_zigzag_paths, filter_nested_paths, filter_paths_by_color, save_paths
 from config import Config
 
 def main():
@@ -19,9 +19,10 @@ def main():
         angles = config.get_angles(value) 
         spacing = config.get_spacing(value)
         slice_flags = config.get_slice_sizes(value)
-   
+        paths = filter_paths_by_color(all_paths, attrs, config.get_color(value))
+
         for i in range(0, len(angles)): 
-            zigzags_reg, zigzag_small = paths_to_zigzag_paths(all_paths, angles[i], spacing[i], slice_height=slice_flags[i])
+            zigzags_reg, zigzag_small = paths_to_zigzag_paths(paths, angles[i], spacing[i], slice_height=slice_flags[i])
             zigzags_small_size.extend(zigzag_small)
             print(f"small zigzags: {len(zigzag_small)}")
             print(f"reg zigzags: {len(zigzags_reg)}")

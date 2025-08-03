@@ -22,7 +22,6 @@ def save_paths(paths, filepath, svg_attrs, with_border=True):
         stroke_widths=[0.1] * len(paths)
     )
 
-    
 def remove_duplicate_paths(paths):
     seen = set()
     unique = []
@@ -56,9 +55,24 @@ def shapely_polygon_to_svgpath(poly):
         segments.append(Line(start, end))
     return Path(*segments)
 
-
 def random_color():
     return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+
+def parse_style(style_str: str) -> dict:
+    d = {}
+    for part in style_str.strip().split(';'):
+        if ':' in part:
+            k, v = part.split(':', 1)
+            d[k.strip()] = v.strip()
+    return d
+
+def filter_paths_by_color(paths, attrs, color):
+    filtered_paths = [] 
+    for path, attr in zip(paths, attrs):
+        path_color = parse_style(attr.get("style")).get("fill")
+        if path_color == color: 
+            filtered_paths.append(path)
+    return filtered_paths 
 
 def _clean(g):
     g = _fix(g)
@@ -178,8 +192,8 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
             elif second_line.length() > longest_line_len:
                 longest_line_len = second_line.length()
         
-            zig.append(first_line)
-            zig.append(second_line)
+            zig.append(Line(last[1], nxt[0]))
+            zig.append(Line(nxt[0], nxt[1]))
             num_lines += 2
             last = nxt
         
