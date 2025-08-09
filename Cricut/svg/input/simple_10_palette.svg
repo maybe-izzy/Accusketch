@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="a" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" width="612" height="792" viewBox="0 0 612 792">
+  <rect x="40" y="41" width="41" height="41" style="fill: #010101;"/>
+  <rect x="84" y="41" width="41" height="41" style="fill: #262525;"/>
+  <polyline points="128 82 128 41 169 41 169 82" style="fill: #404040;"/>
+  <polyline points="172 82 172 41 213 41 213 82" style="fill: #595959;"/>
+  <polyline points="216 41 257 41 257 82 216 82" style="fill: #737374;"/>
+  <rect x="260" y="41" width="41" height="41" style="fill: #8b8b8b;"/>
+  <polyline points="304 82 304 41 345 41 345 82" style="fill: #a7a6a6;"/>
+  <polyline points="348 82 348 41 389 41 389 82" style="fill: #c0bfbf;"/>
+  <polyline points="392 82 392 41 433 41 433 82" style="fill: #d9d9d8;"/>
+  <polyline points="436 82 436 41 477 41 477 82" style="fill: #fdfcfc;"/>
+</svg>

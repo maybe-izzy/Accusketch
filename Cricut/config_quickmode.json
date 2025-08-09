@@ -1,0 +1,68 @@
+{
+    "svg_filename" : "simple_trace", 
+    "save_with_color" : false, 
+    "save_single_output" : true, 
+    "values_to_process" : [1, 2, 3], 
+    "shading_config" : {
+        "1" : {
+            "color" : "#010101", 
+            "angles" : [0, 90, 45], 
+            "slice_heights" : [0, 0, 0], 
+            "spacing" : [2, 2, 2]
+        },
+        "2" : {
+            "color" : "#262525", 
+            "angles" : [0, 90], 
+            "slice_heights" : [0, 0], 
+            "spacing" : [3, 3] 
+        },
+        "3" : {
+            "color" : "#404040", 
+            "angles" : [0], 
+            "slice_heights" : [0, 0], 
+            "spacing" : [3, 3]
+        }, 
+        "4" : {
+            "color" : "#595959", 
+            "angles" : [0, 90, 45], 
+            "slice_heights" : [0, 0], 
+            "spacing" : [2, 2, 2]
+        }, 
+       "5" : {
+            "color" : "#737374", 
+            "angles" : [0, 90], 
+            "slice_heights" : [0, 0], 
+            "spacing" : [3, 3]
+        }, 
+       "6" : {
+            "color" : "#8b8b8b", 
+            "angles" : [0], 
+            "slice_heights" : [0, 0], 
+            "spacing" : [3]
+        },
+        "7" : {
+            "color" : "#a7a6a6", 
+            "angles" : [0, 90], 
+            "slice_heights" : [0, 0], 
+            "spacing" : [7, 7]
+        },
+        "8" : {
+            "color" : "#c0bfbf", 
+            "angles" : [0, 90], 
+            "slice_heights" : [0], 
+            "spacing" : [8, 8]
+        },
+        "9" : {
+            "color" : "#d9d9d8", 
+            "angles" : [0, 90], 
+            "slice_heights" : [0], 
+            "spacing" : [9, 9]
+        },
+        "10" : {
+            "color" : "#fdfcfc", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        }
+    }
+}

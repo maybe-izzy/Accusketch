@@ -13,7 +13,7 @@ _fix = lambda g: g.buffer(0)
 
 def save_paths(paths, filepath, svg_attrs, with_border=True, with_color=True):
     if with_border:
-        paths.extend(get_border_path(svg_attrs=svg_attrs))
+        paths = get_border_path(svg_attrs=svg_attrs) + paths
 
     colors = None
     if with_color:
@@ -414,7 +414,108 @@ def zigzag_fill(path,
             result_mid.append(zig)
     return result, result_mid
 
+def _parse_len(v):
+    s = str(v).strip()
+    for suf in ("in", "pt", "px", "cm", "mm"):
+        if s.endswith(suf):
+            num = float(s[:-len(suf)])
+            return num, suf
+    return float(s), ""  # unitless
 
+def _units_per_inch(svg_attrs):
+    vb = svg_attrs.get("viewBox")
+    w_raw = svg_attrs.get("width")
+    if w_raw is not None and vb:
+        w_val, w_unit = _parse_len(w_raw)
+        if w_unit == "in":
+            vb_w = float(vb.split()[2])
+            return vb_w / w_val
+        if w_unit == "pt":
+            return 72.0
+        if w_unit == "px":
+            return 96.0
+    return 72.0  # sensible default for many AI exports
+
+def _canvas_size(svg_attrs):
+    if "viewBox" in svg_attrs:
+        _, _, w, h = map(float, svg_attrs["viewBox"].split())
+        return w, h
+    def _num(v):
+        val, _ = _parse_len(v)
+        return val
+    return _num(svg_attrs.get("width", 0)), _num(svg_attrs.get("height", 0))
+
+def _rect_path(x0, y0, x1, y1):
+    return Path(
+        Line(complex(x0, y0), complex(x1, y0)),
+        Line(complex(x1, y0), complex(x1, y1)),
+        Line(complex(x1, y1), complex(x0, y1)),
+        Line(complex(x0, y1), complex(x0, y0)),
+    )
+
+def _cross_at(x, y, half):
+    # two short orthogonal lines centered at (x,y)
+    return Path(
+        Line(complex(x - half, y), complex(x + half, y)),
+        Line(complex(x, y - half), complex(x, y + half)),
+    )
+
+def get_border_path(
+    svg_attrs,
+    *,
+    add_corner_rects=True,
+    rect_count=4,
+    rect_width_in=0.5,
+    rect_height_in=0.5,
+    margin_in=0.0,
+    spacing_in=0.5,
+    orientation="horizontal",  # "horizontal" starts at bottom-left now
+):
+    W, H = _canvas_size(svg_attrs)
+
+    """
+    border = Path(
+        Line(0 + 0j, W + 0j),
+        Line(W + 0j, W + H * 1j),
+        Line(W + H * 1j, 0 + H * 1j),
+        Line(0 + H * 1j, 0 + 0j),
+    )
+    out = [border]
+    """
+        # points mode
+    upi = _units_per_inch(svg_attrs)
+    half = (0.01 * upi) / 2.0
+    m = margin_in * upi
+    pts = [(m, m), (W - m, m), (W - m, H - m), (m, H - m)]
+
+    out = [_cross_at(x, y, half) for x, y in pts]
+
+
+    if not add_corner_rects or rect_count <= 0:
+        return out
+
+    rw = rect_width_in * upi
+    rh = rect_height_in * upi
+    m  = margin_in * upi
+    s  = spacing_in * upi
+
+    if orientation.lower().startswith("h"):  # bottom-left → rightward
+        for i in range(rect_count):
+            x0 = m + i * (rw + s)
+            x1 = x0 + rw
+            y1 = H - m
+            y0 = y1 - rh
+            out.append(_rect_path(x0, y0, x1, y1))
+    else:  # vertical stack from bottom-right upward (unchanged)
+        for i in range(rect_count):
+            x1 = W - m
+            x0 = x1 - rw
+            y1 = H - m - i * (rh + s)
+            y0 = y1 - rh
+            out.append(_rect_path(x0, y0, x1, y1))
+
+    return out
+"""
 def get_border_path(svg_attrs):
     if "viewBox" in svg_attrs:
         vb = list(map(float, svg_attrs["viewBox"].split()))
@@ -430,7 +531,7 @@ def get_border_path(svg_attrs):
         Line(0 + height * 1j, 0 + 0j),
     )
     return border
-
+"""
 
 def sort_paths_by_proximity(paths):
     if not paths:
