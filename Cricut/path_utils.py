@@ -3,7 +3,7 @@ from shapely.ops import unary_union
 import math
 import numpy as np
 from shapely.prepared import prep
-from shapely.geometry import box, LineString, Polygon, GeometryCollection
+from shapely.geometry import box, LineString, Polygon, GeometryCollection, MultiPolygon
 from svgpathtools import Line, Path, wsvg
 from shapely.strtree import STRtree
 from numbers import Integral
@@ -11,19 +11,19 @@ from numbers import Integral
 _fix = lambda g: g.buffer(0)
 
 
-def save_paths(paths, filepath, svg_attrs, with_border=True):
+def save_paths(paths, filepath, svg_attrs, with_border=True, with_color=True):
     if with_border:
         paths.extend(get_border_path(svg_attrs=svg_attrs))
 
-    colors = [random_color() for _ in paths]
+    colors = None
+    if with_color:
+        colors = [random_color() for _ in paths]
 
-    wsvg(
-        paths,
-        filename=filepath,
-        svg_attributes=svg_attrs,
-        colors=colors,
-        stroke_widths=[0.1] * len(paths)
-    )
+    wsvg(paths,
+         filename=filepath,
+         svg_attributes=svg_attrs,
+         stroke_widths=[0.1] * len(paths),
+         colors=colors)
 
 
 def remove_duplicate_paths(paths):
@@ -123,7 +123,8 @@ def svgpath_to_shapely_polygon(path, step=1.5, min_pts=25, max_pts=10000):
 
 def shapely_to_svgpathtools_path(poly):
     """
-    Converts a shapely Polygon or MultiPolygon (with holes) into an svgpathtools.Path.
+    Converts a shapely Polygon / MultiPolygon / GeometryCollection (with holes)
+    into an svgpathtools.Path.
     """
     segments = []
 
@@ -134,20 +135,24 @@ def shapely_to_svgpathtools_path(poly):
             segs.append(Line(complex(*a), complex(*b)))
         return segs
 
-    if poly.geom_type == "Polygon":
+    # Single polygon
+    if isinstance(poly, Polygon):
         if poly.exterior is not None:
             segments.extend(ring_to_segments(poly.exterior))
         for interior in poly.interiors:
             segments.extend(ring_to_segments(interior))
         return Path(*segments)
-    elif poly.geom_type == "MultiPolygon":
-        all_segs = []
-        for part in poly:
+
+    # MultiPolygon or other collection-like
+    if isinstance(poly, MultiPolygon) or hasattr(poly, "geoms"):
+        for part in getattr(poly, "geoms", []):
             part_path = shapely_to_svgpathtools_path(part)
-            all_segs.extend(list(part_path))
-        return Path(*all_segs)
-    else:
-        return Path()
+            # part_path is a Path; extend its segments
+            segments.extend(list(part_path))
+        return Path(*segments)
+
+    # Fallback: unknown geometry
+    return Path()
 
 
 def build_containment_tree(polys):
@@ -204,7 +209,11 @@ def assemble_holey_polygons(polys):
     return result
 
 
-def merge_outer_and_hole_paths(paths, *, sampling_step=1.5, min_pts=25, max_pts=10000):
+def merge_outer_and_hole_paths(paths,
+                               *,
+                               sampling_step=1.5,
+                               min_pts=25,
+                               max_pts=10000):
     """
     Given a list of svgpathtools.Path objects that share the same fill (outer + hole
     as separate <path> elements), collapse them into merged hole-aware Paths.
@@ -212,8 +221,10 @@ def merge_outer_and_hole_paths(paths, *, sampling_step=1.5, min_pts=25, max_pts=
     # Build (original, shapely) list
     polys = []
     for p in paths:
-        poly = svgpath_to_shapely_polygon(p, step=sampling_step,
-                                          min_pts=min_pts, max_pts=max_pts)
+        poly = svgpath_to_shapely_polygon(p,
+                                          step=sampling_step,
+                                          min_pts=min_pts,
+                                          max_pts=max_pts)
         if not poly.is_valid:
             poly = poly.buffer(0)
         if poly.is_empty:
@@ -267,12 +278,7 @@ def _clean(g):
     return g
 
 
-def filter_nested_paths(
-        paths,
-        *,
-        num_samples: int = 800,
-        tol: float = 1e-3
-    ):
+def filter_nested_paths(paths, *, num_samples: int = 800, tol: float = 1e-3):
     """
     Remove any path that lies completely inside (or on the edge of)
     another path, regardless of SVG stacking order.
@@ -286,7 +292,10 @@ def filter_nested_paths(
 
     # 2) make a list of *valid* polygons for the STRtree
     valid_polys = [poly for poly in polys if poly is not None]
-    poly_to_index = {id(poly): i for i, poly in enumerate(polys) if poly is not None}
+    poly_to_index = {
+        id(poly): i
+        for i, poly in enumerate(polys) if poly is not None
+    }
 
     tree = STRtree(valid_polys)
 
@@ -313,7 +322,11 @@ def filter_nested_paths(
     return [p for p, keep in zip(paths, keep_flags) if keep]
 
 
-def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e-2):
+def zigzag_fill(path,
+                step=5,
+                overshoot=10,
+                path_buf=0.1,
+                x_tolerance_epsilon=1e-2):
     pts = [(seg.start.real, seg.start.imag) for seg in path]
     if len(pts) < 2:
         return None
@@ -358,13 +371,12 @@ def zigzag_fill(path, step=5, overshoot=10, path_buf=0.1, x_tolerance_epsilon=1e
             matched = False
             for grp in groups:
                 last = grp[-1]
-                scan = LineString([
-                    (last[1].real, last[1].imag),
-                    (p[0].real,    p[0].imag)
-                ])
+                scan = LineString([(last[1].real, last[1].imag),
+                                   (p[0].real, p[0].imag)])
                 dx = abs(p[0].real - last[1].real)
 
-                if abs(dx - step) < x_tolerance_epsilon and prepared_safe.covers(scan):
+                if abs(dx - step
+                       ) < x_tolerance_epsilon and prepared_safe.covers(scan):
                     grp.append(p)
                     matched = True
                     break
@@ -450,17 +462,19 @@ def sort_paths_by_proximity(paths):
 
     return sorted_paths
 
+
 def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
     new_paths = []
     new_paths_small = []
 
     global global_xmin
     global_xmin = min(p.bbox()[0] for p in paths)
-    
+
     for path in paths:
         xmin, xmax, ymin, ymax = path.bbox()
-        
-        if slice_height is None or slice_height <= 0 or slice_height >= (ymax - ymin):
+
+        if slice_height is None or slice_height <= 0 or slice_height >= (ymax -
+                                                                         ymin):
             bands = [(ymin, ymax)]  # one single band (no slicing)
         else:
             bands = []
@@ -468,41 +482,42 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
             while y < ymax:
                 bands.append((y, min(y + slice_height, ymax)))
                 y += slice_height
-       
+
         base_poly = svgpath_to_shapely_polygon(path, step)
         for y0, y1 in bands:
             band = box(xmin, y0, xmax, y1)
-           
+
             try:
                 poly0 = base_poly.buffer(0)
                 slice_poly = poly0.intersection(band)
-            except :
+            except:
                 slice_poly = base_poly.buffer(0).intersection(band)
             if slice_poly.is_empty:
                 continue
-            slices = ([slice_poly] if isinstance(slice_poly, Polygon)
-                      else list(slice_poly.geoms))
+            slices = ([slice_poly] if isinstance(slice_poly, Polygon) else
+                      list(slice_poly.geoms))
             for sp in slices:
                 slice_path = shapely_to_svgpathtools_path(sp)
                 sxmin, sxmax, symin, symax = slice_path.bbox()
-                slice_center = complex((sxmin + sxmax) / 2, (symin + symax) / 2)
+                slice_center = complex((sxmin + sxmax) / 2,
+                                       (symin + symax) / 2)
                 rotated = slice_path.rotated(angle, origin=slice_center)
-                zigzags_reg, zigzag_small = zigzag_fill(
-                    path=rotated,
-                    step=step,
-                    overshoot=1,
-                    path_buf=.2,
-                    x_tolerance_epsilon=1
-                )
-                
+                zigzags_reg, zigzag_small = zigzag_fill(path=rotated,
+                                                        step=step,
+                                                        overshoot=10,
+                                                        path_buf=.4,
+                                                        x_tolerance_epsilon=1)
+
                 if zigzags_reg:
-               
+
                     for z in zigzags_reg:
-                        new_paths.append(z.rotated(-angle, origin=slice_center))
+                        new_paths.append(z.rotated(-angle,
+                                                   origin=slice_center))
                 elif zigzag_small:
-           
+
                     for z in zigzag_small:
-                        new_paths_small.append(z.rotated(-angle, origin=slice_center))
+                        new_paths_small.append(
+                            z.rotated(-angle, origin=slice_center))
                 if not zigzags_reg and not zigzag_small:
                     new_paths_small.append(slice_path)
 
