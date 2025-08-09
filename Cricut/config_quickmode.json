@@ -1,6 +1,6 @@
 {
     "svg_filename" : "simple_trace", 
-    "save_with_color" : false, 
+    "save_with_color" : true, 
     "save_single_output" : true, 
     "values_to_process" : [1, 2, 3], 
     "shading_config" : {

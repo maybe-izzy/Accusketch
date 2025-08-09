@@ -67,6 +67,7 @@ def main():
                 combined + paths_to_outline,
                 config.get_output_path(extension=f"_all_{value}"),
                 svg_attrs,
+                with_border=True,
                 with_color=config.get_save_with_color()
             )
 
@@ -77,6 +78,7 @@ def main():
             all_combined + paths_to_outline,
             config.get_output_path(extension="_all"),
             svg_attrs,
+            with_border=True,
             with_color=config.get_save_with_color()
         )
 
