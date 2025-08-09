@@ -383,8 +383,7 @@ def zigzag_fill(path,
             if not matched:
                 groups.append([p])
 
-    result = []
-    result_mid = []
+    zigzags = []
 
     for grp in groups:
         if not grp:
@@ -409,10 +408,10 @@ def zigzag_fill(path,
 
         if longest_line_len >= 3.5 and num_lines >= 5:
             #print(f"longest_line_len: {longest_line_len}, num_lines: {num_lines}")
-            result.append(zig)
-        else:
-            result_mid.append(zig)
-    return result, result_mid
+            zigzags.append(zig)
+        else: 
+            print("nothing")
+    return zigzags
 
 def _parse_len(v):
     s = str(v).strip()
@@ -566,7 +565,6 @@ def sort_paths_by_proximity(paths):
 
 def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
     new_paths = []
-    new_paths_small = []
 
     global global_xmin
     global_xmin = min(p.bbox()[0] for p in paths)
@@ -603,26 +601,19 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
                 slice_center = complex((sxmin + sxmax) / 2,
                                        (symin + symax) / 2)
                 rotated = slice_path.rotated(angle, origin=slice_center)
-                zigzags_reg, zigzag_small = zigzag_fill(path=rotated,
+                zigzags_reg = zigzag_fill(path=rotated,
                                                         step=step,
                                                         overshoot=10,
                                                         path_buf=.4,
                                                         x_tolerance_epsilon=1)
 
                 if zigzags_reg:
-
                     for z in zigzags_reg:
                         new_paths.append(z.rotated(-angle,
                                                    origin=slice_center))
-                elif zigzag_small:
-
-                    for z in zigzag_small:
-                        new_paths_small.append(
-                            z.rotated(-angle, origin=slice_center))
-                if not zigzags_reg and not zigzag_small:
-                    new_paths_small.append(slice_path)
+                #if not zigzags_reg:
+                    #new_paths.append(slice_path)
 
     new_paths = remove_duplicate_paths(new_paths)
-    new_paths_small = remove_duplicate_paths(new_paths_small)
 
-    return new_paths, new_paths_small
+    return new_paths
