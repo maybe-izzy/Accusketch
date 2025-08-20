@@ -409,8 +409,8 @@ def zigzag_fill(path,
         if longest_line_len >= 3.5 and num_lines >= 5:
             #print(f"longest_line_len: {longest_line_len}, num_lines: {num_lines}")
             zigzags.append(zig)
-        else: 
-            print("nothing")
+        #else: 
+            #print("nothing")
     return zigzags
 
 def _parse_len(v):
@@ -462,7 +462,7 @@ def _cross_at(x, y, half):
 def get_border_path(
     svg_attrs,
     *,
-    add_corner_rects=True,
+    add_corner_rects=False,
     rect_count=4,
     rect_width_in=0.5,
     rect_height_in=0.5,
@@ -563,7 +563,7 @@ def sort_paths_by_proximity(paths):
     return sorted_paths
 
 
-def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
+def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0, with_outline=False):
     new_paths = []
 
     global global_xmin
@@ -611,7 +611,8 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0):
                     for z in zigzags_reg:
                         new_paths.append(z.rotated(-angle,
                                                    origin=slice_center))
-                #if not zigzags_reg:
+                if with_outline is True: 
+                    new_paths.append(slice_path)
                     #new_paths.append(slice_path)
 
     new_paths = remove_duplicate_paths(new_paths)

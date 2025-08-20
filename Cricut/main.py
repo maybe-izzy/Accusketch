@@ -30,9 +30,19 @@ def main():
         spacing = config.get_spacing(value)
         slice_flags = config.get_slice_sizes(value)
         paths = filter_paths_by_color(all_paths, attrs, config.get_color(value))
-        print(f"There are {len(paths)} paths for value: {value}")
+        print(f"There are {len(paths)} paths for value: {value}")          
 
         paths = merge_outer_and_hole_paths(paths)
+
+
+        save_paths(
+            paths,
+            config.get_output_path(extension="_outlines"),
+            svg_attrs,
+            with_border=True,
+            with_color=config.get_save_with_color()
+        )
+
         max_area = 25000
         paths_to_use = []
         paths_to_outline = []
@@ -49,13 +59,11 @@ def main():
             continue
         for angle, step, slice_height in zip(angles, spacing, slice_flags):
             zigzags_reg = paths_to_zigzag_paths(
-                paths_to_use, angle, step, slice_height=slice_height
+                paths_to_use, angle, step, slice_height=slice_height, with_outline=config.get_with_outline()
             )
             print(f"zigzags: {len(zigzags_reg)}")
             zigzags.extend(zigzags_reg)
 
-
-        # If you want a combined output per value (regular + small), merge and dedupe here:
             
         if not config.get_save_single_output():
             save_paths(

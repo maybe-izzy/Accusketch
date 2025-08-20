@@ -1,20 +1,28 @@
 {
-    "svg_filename" : "simple_trace", 
+    "svg_filename" : "gage_all", 
     "save_with_color" : true, 
     "save_single_output" : true, 
-    "values_to_process" : [1, 2, 3], 
+    "outlines_only" : true, 
+    "with_outline" : false, 
+    "values_to_process" : [1], 
     "shading_config" : {
         "1" : {
             "color" : "#010101", 
-            "angles" : [0, 90, 45], 
+            "angles" : [0], 
             "slice_heights" : [0, 0, 0], 
             "spacing" : [2, 2, 2]
         },
-        "2" : {
-            "color" : "#262525", 
+        "1.5" : {
+            "color" : "#171717", 
             "angles" : [0, 90], 
             "slice_heights" : [0, 0], 
-            "spacing" : [3, 3] 
+            "spacing" : [2, 2]
+        },
+        "2" : {
+            "color" : "#262525", 
+            "angles" : [0], 
+            "slice_heights" : [0, 0], 
+            "spacing" : [2, 2] 
         },
         "3" : {
             "color" : "#404040", 

@@ -9,12 +9,19 @@ class Config:
 
     def get_save_single_output(self):
         return self.cfg_dict["save_single_output"]
+    
+    
+    def get_outlines_only(self):
+        return self.cfg_dict["outlines_only"]
 
     def get_save_with_color(self):
         return self.cfg_dict["save_with_color"]
 
     def get_svg_name(self):
         return self.cfg_dict["svg_filename"]
+
+    def get_with_outline(self):
+        return self.cfg_dict["with_outline"]
 
     def get_values_to_process(self):
         return self.cfg_dict["values_to_process"]
