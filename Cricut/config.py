@@ -26,6 +26,18 @@ class Config:
     def get_values_to_process(self):
         return self.cfg_dict["values_to_process"]
 
+    def get_max_area(self): 
+        return self.cfg_dict["max_polygon_area"]
+    
+    def get_min_area(self): 
+        return self.cfg_dict["min_polygon_area"]
+    
+    def get_outline_large_polygons(self): 
+        return self.cfg_dict["outline_large_polygons"]
+    
+    def get_outline_small_polygons(self): 
+        return self.cfg_dict["outline_small_polygons"]
+    
     def get_output_path(self, extension=None):
         if extension is None:
             return os.path.join("./svg/output/",

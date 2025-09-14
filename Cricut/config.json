@@ -1,8 +1,12 @@
 {
-    "svg_filename" : "paint_all", 
+    "svg_filename" : "gage_portrait", 
     "save_with_color" : true, 
     "save_single_output" : true, 
-    "with_outline" : true, 
+    "with_outline" : false, 
+    "max_polygon_area" : -1, 
+    "min_polygon_area" : -1, 
+    "outline_small_polygons": true, 
+    "outline_large_polygons": true, 
     "values_to_process" : [1], 
     "shading_config" : {
         "1" : {

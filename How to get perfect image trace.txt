@@ -1,0 +1,1 @@
+trace on 22 colors (regular color, reduced palette) then expand, select all, recolor artwork, select 22 color "deeper" palette

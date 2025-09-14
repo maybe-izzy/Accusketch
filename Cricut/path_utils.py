@@ -406,9 +406,9 @@ def zigzag_fill(path,
             num_lines += 2
             last = nxt
 
-        if longest_line_len >= 3.5 and num_lines >= 5:
+        #if longest_line_len >= 2 and num_lines >= 3:
             #print(f"longest_line_len: {longest_line_len}, num_lines: {num_lines}")
-            zigzags.append(zig)
+        zigzags.append(zig)
         #else: 
             #print("nothing")
     return zigzags

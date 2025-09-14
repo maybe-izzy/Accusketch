@@ -12,15 +12,13 @@ from config import Config
 
 
 def main():
-    cfg_filename = "config_quickmode.json"
+    cfg_filename = "config.json"
     config = Config(cfg_filename)
     config.print_config()
 
     all_paths, attrs, svg_attrs = svg2paths2(os.path.join(config.get_input_path()))
-    # Keep original outlines unmodified (do not remove hole paths yet)
-    #save_paths(all_paths, config.get_output_path(extension="_outlines"), svg_attrs)
+    
     zigzags = []
-  
 
     for value in config.get_values_to_process():
         if not config.get_save_single_output():
@@ -34,7 +32,6 @@ def main():
 
         paths = merge_outer_and_hole_paths(paths)
 
-
         save_paths(
             paths,
             config.get_output_path(extension="_outlines"),
@@ -43,15 +40,27 @@ def main():
             with_color=config.get_save_with_color()
         )
 
-        max_area = 25000
+        max_area = config.get_max_area()
+        min_area = config.get_min_area() 
+
         paths_to_use = []
         paths_to_outline = []
-
+        
         for path in paths: 
             poly = svgpath_to_shapely_polygon(path)
-            if poly.area > max_area:
-                print("skip")
-                paths_to_outline.append(path)
+            
+            if max_area != -1 and poly.area >= max_area:
+                print("skipping polygon - above configured max polygon area.")
+
+                if config.get_outline_large_polygons(): 
+                    print("outlining large polygon")
+                    paths_to_outline.append(path)
+            elif min_area != -1 and poly.area <= min_area: 
+                print("skipping polygon - below configured min polygon area.")
+
+                if config.get_outline_small_polygons(): 
+                    print("outlining small polygon")        
+                    paths_to_outline.append(path)
             else: 
                 paths_to_use.append(path)
         
