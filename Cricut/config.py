@@ -65,7 +65,7 @@ class Config:
 
     def print_config(self):
         print(f"{'='*30} CONFIG {'='*30}")
-        #print(f"Input path: {self.get_input_path()}")
+        print(f"Input path: {self.get_input_path()}")
         print(f"Output path: {self.get_output_path()}")
         for value in self.get_all_values():
             print(
