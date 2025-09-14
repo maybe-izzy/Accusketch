@@ -1,4 +1,5 @@
 import os
+import sys
 from svgpathtools import svg2paths2
 from path_utils import (
     paths_to_zigzag_paths,
@@ -12,7 +13,7 @@ from config import Config
 
 
 def main():
-    cfg_filename = "config.json"
+    cfg_filename = sys.argv[1]
     config = Config(cfg_filename)
     config.print_config()
 
@@ -77,7 +78,7 @@ def main():
         if not config.get_save_single_output():
             save_paths(
                 remove_duplicate_paths(zigzags) + paths_to_outline,
-                config.get_output_path(extension=f"_all_{value}"),
+                config.get_output_path(extension=f"[{value}]"),
                 svg_attrs,
                 with_border=True,
                 with_color=config.get_save_with_color()
@@ -88,7 +89,7 @@ def main():
         
         save_paths(
             all_combined + paths_to_outline,
-            config.get_output_path(extension="_all"),
+            config.get_output_path(extension=(str(config.get_values_to_process()))),
             svg_attrs,
             with_border=True,
             with_color=config.get_save_with_color()

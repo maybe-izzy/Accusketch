@@ -3,13 +3,12 @@ import json
 
 class Config:
 
-    def __init__(self, fname):
-        with open(fname) as f:
+    def __init__(self, config_filepath):
+        with open(config_filepath) as f:
             self.cfg_dict = json.load(f)
-
+        
     def get_save_single_output(self):
         return self.cfg_dict["save_single_output"]
-    
     
     def get_outlines_only(self):
         return self.cfg_dict["outlines_only"]
@@ -66,7 +65,7 @@ class Config:
 
     def print_config(self):
         print(f"{'='*30} CONFIG {'='*30}")
-        print(f"Input path: {self.get_input_path()}")
+        #print(f"Input path: {self.get_input_path()}")
         print(f"Output path: {self.get_output_path()}")
         for value in self.get_all_values():
             print(

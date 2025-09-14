@@ -388,22 +388,24 @@ def zigzag_fill(path,
     for grp in groups:
         if not grp:
             continue
-        longest_line_len = 0
-        num_lines = 1
+        #longest_line_len = 0
+        #num_lines = 1
         zig = Path(Line(grp[0][0], grp[0][1]))
         last = grp[0]
         for nxt in grp[1:]:
-            first_line = Line(last[1], nxt[0])
-            second_line = Line(nxt[0], nxt[1])
-
+            #first_line = Line(last[1], nxt[0])
+            #second_line = Line(nxt[0], nxt[1])
+            
+            """
             if first_line.length() > longest_line_len:
                 longest_line_len = first_line.length()
             elif second_line.length() > longest_line_len:
                 longest_line_len = second_line.length()
+            """
 
             zig.append(Line(last[1], nxt[0]))
             zig.append(Line(nxt[0], nxt[1]))
-            num_lines += 2
+            #num_lines += 2
             last = nxt
 
         #if longest_line_len >= 2 and num_lines >= 3:
