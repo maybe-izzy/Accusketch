@@ -1,18 +1,34 @@
 {
     "svg_filename" : "gage_portrait", 
-    "save_with_color" : true, 
+    "svg_input_dir" : "./svg/input/", 
+    "svg_output_dir" : "./svg/output/", 
+
+    "path_buffer" : 0.4,
+    "x_tolerance_epsilon" : 1,
+    "overshoot" : 10, 
+
+    "save_with_color" : false, 
     "save_single_output" : true, 
     "with_outline" : false, 
+
     "max_polygon_area" : 155000, 
-    "min_polygon_area" : -1, 
-    "outline_small_polygons": true, 
-    "outline_large_polygons": true, 
-    "values_to_process" : [1], 
+    "min_polygon_area" : 100, 
+
+    "outline_small_polygons": true,
+    "outline_large_polygons": false,  
+    "outline_regular_polygons": false, 
+
+    "slice_small_polygons": false,
+    "slice_large_polygons": true,  
+    "slice_regular_polygons": true, 
+
+    "values_to_process" : [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10], 
+
     "shading_config" : {
         "1" : {
             "color" : "#010101", 
             "angles" : [0], 
-            "slice_heights" : [0, 0], 
+            "slice_heights" : [200, 0], 
             "spacing" : [3, 0.8]
         },
         "1.25" : {
@@ -39,8 +55,50 @@
             "slice_heights" : [0], 
             "spacing" : [3]
         }, 
+        "2.25" : {
+            "color" : "#2c2c2c", 
+            "angles" : [0], 
+            "slice_heights" : [0], 
+            "spacing" : [3]
+        }, 
+        "2.5" : {
+            "color" : "#333333", 
+            "angles" : [0], 
+            "slice_heights" : [0], 
+            "spacing" : [3]
+        }, 
+        "3" : {
+            "color" : "#404040", 
+            "angles" : [0], 
+            "slice_heights" : [0], 
+            "spacing" : [3]
+        }, 
+        "3.5" : {
+            "color" : "#4c4c4c", 
+            "angles" : [0], 
+            "slice_heights" : [0], 
+            "spacing" : [3]
+        }, 
+        "4" : {
+            "color" : "#595959", 
+            "angles" : [0], 
+            "slice_heights" : [0], 
+            "spacing" : [3]
+        },
+        "4.5" : {
+            "color" : "#666666", 
+            "angles" : [0], 
+            "slice_heights" : [0], 
+            "spacing" : [3]
+        },
        "5" : {
             "color" : "#737374", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        }, 
+        "5.5" : {
+            "color" : "#7f7f7f", 
             "angles" : [], 
             "slice_heights" : [], 
             "spacing" : []
@@ -51,8 +109,20 @@
             "slice_heights" : [], 
             "spacing" : []
         },
+        "6.5" : {
+            "color" : "#989797", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        },
         "7" : {
             "color" : "#a7a6a6", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        },
+        "7.5" : {
+            "color" : "#b3b2b2", 
             "angles" : [], 
             "slice_heights" : [], 
             "spacing" : []
@@ -63,8 +133,20 @@
             "slice_heights" : [], 
             "spacing" : []
         },
+        "8.5" : {
+            "color" : "#cccccb", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        },
         "9" : {
             "color" : "#d9d9d8", 
+            "angles" : [], 
+            "slice_heights" : [], 
+            "spacing" : []
+        },
+        "9.5" : {
+            "color" : "#eae9e8", 
             "angles" : [], 
             "slice_heights" : [], 
             "spacing" : []

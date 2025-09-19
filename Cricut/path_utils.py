@@ -522,9 +522,12 @@ def sort_paths_by_proximity(paths):
     return sorted_paths
 
 
-def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0, with_outline=False):
+def paths_to_zigzag_paths(paths, angle, step, config, slice_height=None):
     new_paths = []
-
+     
+    if not paths: 
+        return []
+    
     global global_xmin
     global_xmin = min(p.bbox()[0] for p in paths)
 
@@ -561,19 +564,15 @@ def paths_to_zigzag_paths(paths, angle, step, slice_height=5.0, with_outline=Fal
                                        (symin + symax) / 2)
                 rotated = slice_path.rotated(angle, origin=slice_center)
                 zigzags_reg = zigzag_fill(path=rotated,
-                                                        step=step,
-                                                        overshoot=10,
-                                                        path_buf=.4,
-                                                        x_tolerance_epsilon=1)
+                                            step=step,
+                                            overshoot=config.overshoot,
+                                            path_buf=config.path_buffer,
+                                            x_tolerance_epsilon=config.x_tolerance_epsilon)
 
                 if zigzags_reg:
                     for z in zigzags_reg:
                         new_paths.append(z.rotated(-angle,
                                                    origin=slice_center))
-                if with_outline is True: 
-                    new_paths.append(slice_path)
-
-
     new_paths = remove_duplicate_paths(new_paths)
 
     return new_paths
